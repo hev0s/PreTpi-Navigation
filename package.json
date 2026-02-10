@@ -1,0 +1,25 @@
+{
+  "name": "pretpi-navigation",
+  "version": "0.0.1",
+  "description": "Navigation project for PreTpi who act like Waze",
+  "homepage": "https://github.com/hev0s/PreTpi-Navigation#readme",
+  "bugs": {
+    "url": "https://github.com/hev0s/PreTpi-Navigation/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hev0s/PreTpi-Navigation.git"
+  },
+  "license": "ISC",
+  "author": "Niels Delafontaine",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.4"
+  }
+}
