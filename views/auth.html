@@ -64,7 +64,7 @@
             if (response.ok) {
                 document.getElementById('message').style.color = 'green';
                 document.getElementById('message').innerText = 'Succès ! Redirection...';
-                // TODO: Rediriger vers la page principale de la carte (Home Page)
+                window.location.href = 'home.html';
             } else {
                 document.getElementById('message').style.color = 'red';
                 document.getElementById('message').innerText = data.error || 'Une erreur est survenue';
