@@ -2,9 +2,80 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Login Navigation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation - Connexion</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; padding: 50px; }
+        .container { border: 1px solid #ccc; padding: 20px; border-radius: 8px; width: 300px; }
+        .hidden { display: none; }
+        input { display: block; width: 90%; margin-bottom: 10px; padding: 8px; }
+        button { width: 100%; padding: 10px; cursor: pointer; margin-bottom: 10px; }
+    </style>
 </head>
 <body>
-<h1>Bienvenue</h1>
+
+<div class="container" id="auth-container">
+    <div id="login-section">
+        <h2>Se connecter</h2>
+        <form id="login-form">
+            <input type="text" id="login-username" placeholder="Nom d'utilisateur" required>
+            <input type="password" id="login-password" placeholder="Mot de passe" required>
+            <button type="submit">Connexion</button>
+        </form>
+        <p>Pas de compte ? <a href="#" onclick="toggleSection('signup')">S'inscrire</a></p>
+    </div>
+
+    <div id="signup-section" class="hidden">
+        <h2>Créer un compte</h2>
+        <form id="signup-form">
+            <input type="text" id="signup-username" placeholder="Nom d'utilisateur" required>
+            <input type="password" id="signup-password" placeholder="Mot de passe" required>
+            <button type="submit">S'inscrire</button>
+        </form>
+        <p>Déjà un compte ? <a href="#" onclick="toggleSection('login')">Se connecter</a></p>
+    </div>
+
+    <p id="message" style="color: red;"></p>
+</div>
+
+<script>
+    function toggleSection(section) {
+        document.getElementById('login-section').classList.toggle('hidden', section === 'signup');
+        document.getElementById('signup-section').classList.toggle('hidden', section === 'login');
+        document.getElementById('message').innerText = '';
+    }
+
+    async function handleAuth(event, endpoint) {
+        event.preventDefault();
+        const type = endpoint === 'login' ? 'login' : 'signup';
+        const username = document.getElementById(`${type}-username`).value;
+        const password = document.getElementById(`${type}-password`).value;
+
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                document.getElementById('message').style.color = 'green';
+                document.getElementById('message').innerText = 'Succès ! Redirection...';
+                // TODO: Rediriger vers la page principale de la carte (Home Page)
+            } else {
+                document.getElementById('message').style.color = 'red';
+                document.getElementById('message').innerText = data.error || 'Une erreur est survenue';
+            }
+        } catch (error) {
+            document.getElementById('message').innerText = "Erreur de connexion au serveur.";
+        }
+    }
+
+    document.getElementById('login-form').addEventListener('submit', (e) => handleAuth(e, 'login'));
+    document.getElementById('signup-form').addEventListener('submit', (e) => handleAuth(e, 'signup'));
+</script>
+
 </body>
 </html>
