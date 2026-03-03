@@ -24,7 +24,17 @@ router.post('/geocode', verifyToken, async (req, res) => {
     }
 
     try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`, {
+            method: 'GET',
+            headers: {
+                'User-Agent': 'PreTpi-Navigation-App/1.0 (Projet_TPI_CPNV)'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+
         const data = await response.json();
 
         if (data && data.length > 0) {
@@ -33,7 +43,7 @@ router.post('/geocode', verifyToken, async (req, res) => {
             res.status(404).json({ error: 'Adresse introuvable' });
         }
     } catch (error) {
-        console.error("Erreur de géocodage:", error);
+        console.error("Erreur de géocodage sur le serveur:", error);
         res.status(500).json({ error: 'Erreur lors du calcul' });
     }
 });
