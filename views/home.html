@@ -146,34 +146,51 @@
 
   function initMap() {
     map = L.map('map', {zoomControl: false}).setView([46.8, 6.5], 10);
-
     L.control.zoom({ position: 'bottomright' }).addTo(map);
-
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    map.locate({setView: true, maxZoom: 15, watch: true});
+    if ("geolocation" in navigator) {
+      navigator.geolocation.watchPosition(
+              function(position) {
+                userLocation = L.latLng(position.coords.latitude, position.coords.longitude);
 
-    map.on('locationfound', function(e) {
-      userLocation = e.latlng;
-      if (!userMarker) {
-        const userIcon = L.divIcon({
-          className: 'user-marker',
-          html: '<div style="background-color: #1a73e8; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>',
-          iconSize: [22, 22],
-          iconAnchor: [11, 11]
-        });
-        userMarker = L.marker(userLocation, {icon: userIcon}).addTo(map);
-      } else {
-        userMarker.setLatLng(userLocation);
-      }
-    });
+                if (!userMarker) {
+                  const userIcon = L.divIcon({
+                    className: 'user-marker',
+                    html: '<div style="background-color: #1a73e8; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>',
+                    iconSize: [22, 22],
+                    iconAnchor: [11, 11]
+                  });
+                  userMarker = L.marker(userLocation, {icon: userIcon}).addTo(map);
+                  map.setView(userLocation, 15);
+                } else {
+                  userMarker.setLatLng(userLocation);
+                }
+              },
 
-    map.on('locationerror', function(e) {
-      console.warn("Géolocalisation impossible : " + e.message);
-    });
+              function(error) {
+                let msg = "Erreur inconnue.";
+                if (error.code === 1) {
+                  msg = "Vous avez refusé l'accès au GPS. Allez dans Réglages > Confidentialité > Safari pour l'autoriser.";
+                } else if (error.code === 2) {
+                  msg = "Position indisponible (Pas de signal GPS).";
+                } else if (error.code === 3) {
+                  msg = "Le délai d'attente est dépassé. Le signal GPS est trop faible.";
+                }
+                alert("Problème GPS sur cet iPhone : " + msg);
+              },
+              {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 10000
+              }
+      );
+    } else {
+      alert("La géolocalisation n'est pas supportée par votre téléphone.");
+    }
   }
 
   function addStop() {
