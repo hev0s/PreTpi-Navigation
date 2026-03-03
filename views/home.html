@@ -6,20 +6,28 @@
   <title>Navigation - Carte</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
 
   <style>
-    body { margin: 0; padding: 0; font-family: sans-serif; flex-direction: column; height: 100vh; }
+    body { margin: 0; padding: 0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
 
     #controls { padding: 10px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; }
     .input-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
     input { padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
 
-    .btn-group { display: flex; gap: 10px; }
-    button { flex: 1; padding: 10px; cursor: pointer; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; color: white;}
+    .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+    button { flex: 1; padding: 10px; cursor: pointer; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; color: white; min-width: 100px;}
+
     .btn-route { background: #007bff; }
+    .btn-add-stop { background: #28a745; margin-bottom: 10px; width: 100%; }
     .btn-incident { background: #dc3545; }
     .btn-logout { background: #6c757d; }
+    .btn-nav { background: #ffc107; color: black; display: none; width: 100%; margin-top: 10px; }
+    .btn-stop-nav { background: #dc3545; display: none; width: 100%; margin-top: 10px; }
+
     #map { flex: 1; width: 100%; z-index: 1; }
+
+    .leaflet-routing-container { max-height: 30vh; overflow-y: auto; }
   </style>
 </head>
 
@@ -34,9 +42,7 @@
   } else {
     fetch(`${API_URL}/api/verify`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: { 'Authorization': `Bearer ${token}` }
     })
             .then(response => {
               if (response.ok) {
@@ -48,29 +54,40 @@
               }
             })
             .catch(error => {
-              console.error("Erreur de connexion au serveur d'authentification", error);
+              console.error("Erreur de connexion", error);
               window.location.replace('index.html');
             });
   }
 </script>
 
 <div id="controls">
-  <div class="input-group">
-    <input type="text" id="startPoint" placeholder="Point de départ (ex: Sainte-Croix)">
-    <input type="text" id="endPoint" placeholder="Destination (ex: Yverdon)">
+  <div class="input-group" id="waypoints-container">
+    <input type="text" class="waypoint-input" placeholder="Départ (Laissez vide pour votre position)">
+    <input type="text" class="waypoint-input" placeholder="Destination (ex: Yverdon)">
   </div>
-  <div class="btn-group">
+
+  <button class="btn-add-stop" id="btn-add-stop" onclick="addStop()">+ Ajouter une étape</button>
+
+  <div class="btn-group" id="main-buttons">
     <button class="btn-route" onclick="calculateRoute()">Y aller</button>
     <button class="btn-incident" onclick="reportIncident()">⚠️ Signaler</button>
     <button class="btn-logout" onclick="logout()">Déconnexion</button>
   </div>
+
+  <button class="btn-nav" id="btn-start-nav" onclick="startNavigation()">🚀 Démarrer la navigation</button>
+  <button class="btn-stop-nav" id="btn-stop-nav" onclick="stopNavigation()">🛑 Arrêter la navigation</button>
 </div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
 <script>
   let map;
+  let routingControl = null;
+  let userLocation = null;
+  let userMarker = null;
 
   function initMap() {
     map = L.map('map').setView([46.8, 6.5], 10);
@@ -80,26 +97,118 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    map.locate({setView: true, maxZoom: 15});
+    map.locate({setView: true, maxZoom: 15, watch: true});
 
     map.on('locationfound', function(e) {
-      L.marker(e.latlng).addTo(map)
-              .bindPopup("Vous êtes ici !").openPopup();
+      userLocation = e.latlng;
+      if (!userMarker) {
+        userMarker = L.marker(userLocation).addTo(map).bindPopup("Vous êtes ici !");
+      } else {
+        userMarker.setLatLng(userLocation);
+      }
     });
 
     map.on('locationerror', function(e) {
-      console.warn("Géolocalisation refusée ou impossible : " + e.message);
+      console.warn("Géolocalisation impossible : " + e.message);
     });
   }
 
-  function calculateRoute() {
-    const start = document.getElementById('startPoint').value;
-    const end = document.getElementById('endPoint').value;
-    alert(`Le calcul d'itinéraire de "${start}" vers "${end}" sera implémenté ici avec une API de routage.`);
+  // --- AJOUTER DES ÉTAPES ---
+  function addStop() {
+    const container = document.getElementById('waypoints-container');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'waypoint-input';
+    input.placeholder = 'Étape supplémentaire...';
+    container.appendChild(input);
+  }
+
+  // --- FONCTION DE TRADUCTION TEXTE -> COORDONNÉES (Geocoding) ---
+  async function geocodeAddress(address) {
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+    const data = await response.json();
+    if (data && data.length > 0) {
+      return L.latLng(data[0].lat, data[0].lon);
+    }
+    return null;
+  }
+
+  // --- CALCULER L'ITINÉRAIRE ---
+  async function calculateRoute() {
+    const inputs = document.querySelectorAll('.waypoint-input');
+    let waypoints = [];
+
+    document.querySelector('.btn-route').innerText = "Calcul...";
+
+    for (let i = 0; i < inputs.length; i++) {
+      const address = inputs[i].value.trim();
+
+      if (address === "") {
+        if (i === 0 && userLocation) {
+          waypoints.push(userLocation);
+        }
+      } else {
+        const latLng = await geocodeAddress(address);
+        if (latLng) {
+          waypoints.push(latLng);
+        } else {
+          alert(`Adresse introuvable : ${address}`);
+          document.querySelector('.btn-route').innerText = "Y aller";
+          return;
+        }
+      }
+    }
+
+    if (waypoints.length < 2) {
+      alert("Il faut au moins un point de départ et une destination !");
+      document.querySelector('.btn-route').innerText = "Y aller";
+      return;
+    }
+
+    if (routingControl) {
+      map.removeControl(routingControl);
+    }
+
+    routingControl = L.Routing.control({
+      waypoints: waypoints,
+      routeWhileDragging: true,
+      language: 'fr',
+      showAlternatives: true
+    }).addTo(map);
+
+    document.querySelector('.btn-route').innerText = "Y aller";
+
+    document.getElementById('btn-start-nav').style.display = 'block';
+  }
+
+  // --- NAVIGATION ---
+  function startNavigation() {
+    document.getElementById('waypoints-container').style.display = 'none';
+    document.getElementById('btn-add-stop').style.display = 'none';
+    document.getElementById('main-buttons').style.display = 'none';
+    document.getElementById('btn-start-nav').style.display = 'none';
+
+    document.getElementById('btn-stop-nav').style.display = 'block';
+
+    if (userLocation) {
+      map.setView(userLocation, 18);
+    }
+  }
+
+  function stopNavigation() {
+    document.getElementById('waypoints-container').style.display = 'flex';
+    document.getElementById('btn-add-stop').style.display = 'block';
+    document.getElementById('main-buttons').style.display = 'flex';
+    document.getElementById('btn-start-nav').style.display = 'block';
+    document.getElementById('btn-stop-nav').style.display = 'none';
+
+    if (userLocation) {
+      map.setView(userLocation, 13);
+    }
   }
 
   function reportIncident() {
-    alert("L'interface pour signaler un incident (et l'envoi via WebSockets) s'ouvrira ici.");
+    alert("Prochaine étape : Le formulaire de signalement !");
   }
 
   function logout() {
