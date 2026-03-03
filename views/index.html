@@ -39,6 +39,10 @@
 </div>
 
 <script>
+    if (localStorage.getItem('token')) {
+        window.location.replace('home.html');
+    }
+
     function toggleSection(section) {
         document.getElementById('login-section').classList.toggle('hidden', section === 'signup');
         document.getElementById('signup-section').classList.toggle('hidden', section === 'login');
@@ -47,12 +51,14 @@
 
     async function handleAuth(event, endpoint) {
         event.preventDefault();
-        const type = endpoint === 'login' ? 'login' : 'signup';
-        const username = document.getElementById(`${type}-username`).value;
-        const password = document.getElementById(`${type}-password`).value;
+
+        const formPrefix = endpoint === 'login' ? 'login' : 'signup';
+        const username = document.getElementById(`${formPrefix}-username`).value;
+        const password = document.getElementById(`${formPrefix}-password`).value;
 
         try {
             const API_URL = "https://pretpi-navigation.onrender.com";
+
             const response = await fetch(`${API_URL}/api/${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -63,14 +69,25 @@
 
             if (response.ok) {
                 document.getElementById('message').style.color = 'green';
-                document.getElementById('message').innerText = 'Succès ! Redirection...';
-                window.location.href = 'home.html';
+
+                if (endpoint === 'login') {
+                    localStorage.setItem('token', data.token);
+
+                    document.getElementById('message').innerText = 'Succès ! Redirection...';
+                    window.location.href = 'home.html';
+                } else if (endpoint === 'signup') {
+                    document.getElementById('message').innerText = 'Compte créé avec succès ! Veuillez vous connecter.';
+                    toggleSection('login');
+                }
+
             } else {
                 document.getElementById('message').style.color = 'red';
                 document.getElementById('message').innerText = data.error || 'Une erreur est survenue';
             }
         } catch (error) {
+            document.getElementById('message').style.color = 'red';
             document.getElementById('message').innerText = "Erreur de connexion au serveur.";
+            console.error(error);
         }
     }
 

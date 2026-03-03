@@ -41,6 +41,7 @@
             .then(response => {
               if (response.ok) {
                 document.getElementById('main-body').style.display = 'flex';
+                initMap();
               } else {
                 localStorage.removeItem('token');
                 window.location.replace('index.html');
@@ -52,6 +53,7 @@
             });
   }
 </script>
+
 <div id="controls">
   <div class="input-group">
     <input type="text" id="startPoint" placeholder="Point de départ (ex: Sainte-Croix)">
@@ -68,23 +70,27 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  const map = L.map('map').setView([46.8, 6.5], 10);
+  let map;
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap'
-  }).addTo(map);
+  function initMap() {
+    map = L.map('map').setView([46.8, 6.5], 10);
 
-  map.locate({setView: true, maxZoom: 15});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
 
-  map.on('locationfound', function(e) {
-    L.marker(e.latlng).addTo(map)
-            .bindPopup("Vous êtes ici !").openPopup();
-  });
+    map.locate({setView: true, maxZoom: 15});
 
-  map.on('locationerror', function(e) {
-    console.warn("Géolocalisation refusée ou impossible : " + e.message);
-  });
+    map.on('locationfound', function(e) {
+      L.marker(e.latlng).addTo(map)
+              .bindPopup("Vous êtes ici !").openPopup();
+    });
+
+    map.on('locationerror', function(e) {
+      console.warn("Géolocalisation refusée ou impossible : " + e.message);
+    });
+  }
 
   function calculateRoute() {
     const start = document.getElementById('startPoint').value;
