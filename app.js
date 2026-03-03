@@ -5,6 +5,7 @@ import cors from 'cors';
 
 // Part for SQL scripts
 import authRoutes from "./routes/auth.js";
+import navigationRoutes from "./routes/navigation.js";
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
@@ -22,6 +23,7 @@ app.get('/', (req, res) => {
 
 // API
 app.use('/api', authRoutes);
+app.use('/api/navigation', navigationRoutes);
 
 const PORT = 3000;
 app.listen(PORT, () => {
