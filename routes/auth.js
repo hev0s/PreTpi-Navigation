@@ -1,9 +1,12 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { createUser, getUserByUsername } from "../Database/LinkWithDatabase.js";
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 
 router.use(express.json());
