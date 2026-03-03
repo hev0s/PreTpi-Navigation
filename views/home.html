@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
-    body { margin: 0; padding: 0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
+    body { margin: 0; padding: 0; font-family: sans-serif; flex-direction: column; height: 100vh; }
 
     #controls { padding: 10px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; }
     .input-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
@@ -18,11 +18,40 @@
     button { flex: 1; padding: 10px; cursor: pointer; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; color: white;}
     .btn-route { background: #007bff; }
     .btn-incident { background: #dc3545; }
+    .btn-logout { background: #6c757d; }
     #map { flex: 1; width: 100%; z-index: 1; }
   </style>
 </head>
-<body>
 
+<body style="display: none;" id="main-body">
+
+<script>
+  const API_URL = "https://pretpi-navigation.onrender.com";
+  const token = localStorage.getItem('token');
+
+  if (!token) {
+    window.location.replace('index.html');
+  } else {
+    fetch(`${API_URL}/api/verify`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+            .then(response => {
+              if (response.ok) {
+                document.getElementById('main-body').style.display = 'flex';
+              } else {
+                localStorage.removeItem('token');
+                window.location.replace('index.html');
+              }
+            })
+            .catch(error => {
+              console.error("Erreur de connexion au serveur d'authentification", error);
+              window.location.replace('index.html');
+            });
+  }
+</script>
 <div id="controls">
   <div class="input-group">
     <input type="text" id="startPoint" placeholder="Point de départ (ex: Sainte-Croix)">
@@ -31,6 +60,7 @@
   <div class="btn-group">
     <button class="btn-route" onclick="calculateRoute()">Y aller</button>
     <button class="btn-incident" onclick="reportIncident()">⚠️ Signaler</button>
+    <button class="btn-logout" onclick="logout()">Déconnexion</button>
   </div>
 </div>
 
@@ -64,6 +94,11 @@
 
   function reportIncident() {
     alert("L'interface pour signaler un incident (et l'envoi via WebSockets) s'ouvrira ici.");
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    window.location.replace('index.html');
   }
 </script>
 </body>

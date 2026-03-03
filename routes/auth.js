@@ -8,9 +8,9 @@ const SALT_ROUNDS = 10;
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-
 router.use(express.json());
 
+// --- ROUTE SIGNUP (Inscription) ---
 router.post("/signup", async (req, res) => {
     const { username, password } = req.body;
 
@@ -30,6 +30,7 @@ router.post("/signup", async (req, res) => {
     }
 });
 
+// --- ROUTE LOGIN (Connexion) ---
 router.post("/login", async (req, res) => {
     const { username, password } = req.body;
 
@@ -47,13 +48,43 @@ router.post("/login", async (req, res) => {
         const match = await bcrypt.compare(password, user.password);
 
         if (match) {
-            res.status(200).json({ success: true, userId: user.id, message: 'Connecté !' });
+            const token = jwt.sign(
+                { userId: user.id },
+                JWT_SECRET,
+                { expiresIn: '24h' }
+            );
+
+            res.status(200).json({ success: true, token: token, message: 'Connecté !' });
         } else {
             res.status(401).json({ error: 'Identifiants incorrects' });
         }
     } catch (err) {
         res.status(500).json({ error: 'Internal server error' });
     }
+});
+
+// --- MIDDLEWARE (vérification avec token) ---
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+
+    if (!authHeader) {
+        return res.status(403).json({ error: 'Aucun token fourni' });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(401).json({ error: 'Token invalide ou expiré' });
+        }
+
+        req.userId = decoded.userId;
+        next();
+    });
+};
+
+router.get("/verify", verifyToken, (req, res) => {
+    res.status(200).json({ valid: true, message: "Accès autorisé" });
 });
 
 export default router;
