@@ -136,7 +136,7 @@
 <div id="controls">
   <div class="input-group" id="waypoints-container">
     <input type="text" class="waypoint-input" placeholder="📍 Votre position (Laissez vide)">
-    <input type="text" class="waypoint-input" placeholder="🏁 Destination (ex: Yverdon)">
+    <input type="text" class="waypoint-input" placeholder="🏁 Destination">
   </div>
 
   <button class="btn-add-stop" id="btn-add-stop" onclick="addStop()">+ Ajouter une étape</button>
@@ -175,6 +175,32 @@
   let currentRouteDistance = 0; // en mètres
   let navInterval = null;
 
+  // variable écran
+  let isNavigating = false;
+  let wakeLock = null;
+
+  // Fonction bloque verrouillage écran
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        console.log('Écran maintenu allumé');
+      }
+    } catch (err) {
+      console.error(`Erreur WakeLock: ${err.name}, ${err.message}`);
+    }
+  }
+
+  // Fonction débloque verrouillage écran
+  function releaseWakeLock() {
+    if (wakeLock !== null) {
+      wakeLock.release().then(() => {
+        wakeLock = null;
+        console.log('Extinction de l\'écran réautorisée');
+      });
+    }
+  }
+
   function initMap() {
     map = L.map('map', {zoomControl: false}).setView([46.8, 6.5], 10);
 
@@ -202,10 +228,13 @@
                   map.setView(userLocation, 15);
                 } else {
                   userMarker.setLatLng(userLocation);
+                  if (isNavigating) {
+                    map.setView(userLocation, 17);
+                  }
                 }
               },
               function(error) {},
-              { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+              { enableHighAccuracy: true, maximumAge: 0, timeout: 2000 }
       );
     } else {
       alert("La géolocalisation n'est pas supportée par votre téléphone.");
@@ -313,6 +342,13 @@
       showAlternatives: true,
       lineOptions: {
         styles: [{color: '#1a73e8', opacity: 0.8, weight: 6}]
+      },
+      createMarker: function(i, waypoint, n) {
+        if (i === 0) {
+          return null;
+        } else {
+          return L.marker(waypoint.latLng);
+        }
       }
     }).addTo(map);
 
@@ -332,6 +368,9 @@
   }
 
   function startNavigation() {
+    isNavigating = true;
+    requestWakeLock();
+
     document.getElementById('waypoints-container').style.display = 'none';
     document.getElementById('btn-add-stop').style.display = 'none';
     document.getElementById('main-buttons').style.display = 'none';
@@ -361,10 +400,13 @@
 
         map.setView(userLocation, 17);
       }
-    }, 30000);
+    }, 1000);
   }
 
   function stopNavigation() {
+    isNavigating = false;
+    releaseWakeLock();
+
     document.getElementById('waypoints-container').style.display = 'flex';
     document.getElementById('btn-add-stop').style.display = 'block';
     document.getElementById('main-buttons').style.display = 'grid';
