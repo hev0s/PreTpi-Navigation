@@ -26,7 +26,7 @@ export async function getUserByUsername(username) {
     }
 }
 
-export async function SaveFavoritePlace(userId, PlaceName, placeId) {
+export async function setFavoritePlace(userId, PlaceName, placeId) {
     try {
         const [result] = await db.query(
             'INSERT INTO saved_locations (user_id, label, address) VALUES (?,?,?)',
@@ -35,5 +35,18 @@ export async function SaveFavoritePlace(userId, PlaceName, placeId) {
         return result.insertId;
     } catch (err) {
         console.error('Insert error:', err.message);
+    }
+}
+
+export async function getFavoritePlaces(userId) {
+    try {
+        const [rows] = await db.query(
+            'SELECT id, label, address FROM saved_locations WHERE user_id = ?',
+            [userId]
+        );
+        return rows;
+    } catch (err) {
+        console.error('Select error:', err.message);
+        throw err;
     }
 }
