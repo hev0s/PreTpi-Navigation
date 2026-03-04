@@ -38,12 +38,7 @@
       background-color: #f1f3f4;
       transition: all 0.2s ease;
     }
-    input:focus {
-      outline: none;
-      border-color: #1a73e8;
-      background-color: white;
-      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
-    }
+    input:focus { outline: none; border-color: #1a73e8; background-color: white; box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2); }
 
     .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     button {
@@ -69,6 +64,7 @@
 
     .btn-nav { background: #34a853; color: white; grid-column: span 2; display: none; font-size: 16px; padding: 16px; box-shadow: 0 4px 10px rgba(52, 168, 83, 0.3); }
     .btn-stop-nav { background: #ea4335; color: white; grid-column: span 2; display: none; padding: 16px; font-size: 16px;}
+
     .leaflet-routing-geocoders { display: none !important; }
     .leaflet-routing-container {
       background: white !important;
@@ -80,6 +76,28 @@
       max-height: 40vh;
       overflow-y: auto;
     }
+
+    #eta-panel {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100vw;
+      background: white;
+      padding: 20px;
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      box-sizing: border-box;
+      padding-bottom: 30px;
+    }
+    #eta-time { font-size: 32px; font-weight: 800; color: #202124; margin-bottom: 5px;}
+    #eta-details { font-size: 16px; color: #5f6368; font-weight: 500; }
+    .eta-highlight { color: #34a853; font-weight: 700; }
+
     @media (max-width: 600px) {
       #controls { top: 10px; left: 10px; right: 10px; width: auto; }
     }
@@ -130,7 +148,15 @@
   </div>
 
   <button class="btn-nav" id="btn-start-nav" onclick="startNavigation()">🚀 Démarrer la navigation</button>
-  <button class="btn-stop-nav" id="btn-stop-nav" onclick="stopNavigation()">🛑 Quitter</button>
+  <button class="btn-stop-nav" id="btn-stop-nav" onclick="stopNavigation()">🛑 Quitter la navigation</button>
+</div>
+
+<div id="eta-panel">
+  <div id="eta-time">--:--</div>
+  <div id="eta-details">
+    <span id="eta-duration" class="eta-highlight">-- min</span> •
+    <span id="eta-distance">-- km</span>
+  </div>
 </div>
 
 <div id="map"></div>
@@ -144,9 +170,17 @@
   let userLocation = null;
   let userMarker = null;
 
+  // Variables infos trajet
+  let currentRouteDuration = 0; // en secondes
+  let currentRouteDistance = 0; // en mètres
+  let navInterval = null;
+
   function initMap() {
     map = L.map('map', {zoomControl: false}).setView([46.8, 6.5], 10);
+
     L.control.zoom({ position: 'bottomright' }).addTo(map);
+    document.querySelector('.leaflet-control-zoom').style.marginBottom = '100px';
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap'
@@ -170,23 +204,8 @@
                   userMarker.setLatLng(userLocation);
                 }
               },
-
-              function(error) {
-                let msg = "Erreur inconnue.";
-                if (error.code === 1) {
-                  msg = "Vous avez refusé l'accès au GPS. Allez dans Réglages > Confidentialité > Safari pour l'autoriser.";
-                } else if (error.code === 2) {
-                  msg = "Position indisponible (Pas de signal GPS).";
-                } else if (error.code === 3) {
-                  msg = "Le délai d'attente est dépassé. Le signal GPS est trop faible.";
-                }
-                alert("Problème GPS sur cet iPhone : " + msg);
-              },
-              {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 10000
-              }
+              function(error) {},
+              { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       );
     } else {
       alert("La géolocalisation n'est pas supportée par votre téléphone.");
@@ -223,6 +242,29 @@
       console.error("Erreur serveur lors du géocodage", error);
       return null;
     }
+  }
+
+  function updateETAPanel() {
+    if (currentRouteDuration === 0) return;
+
+    const now = new Date();
+    const arrivalTime = new Date(now.getTime() + currentRouteDuration * 1000);
+
+    const hours = arrivalTime.getHours().toString().padStart(2, '0');
+    const minutes = arrivalTime.getMinutes().toString().padStart(2, '0');
+    document.getElementById('eta-time').innerText = `${hours}:${minutes}`;
+
+    const durationMins = Math.round(currentRouteDuration / 60);
+    const distanceKm = (currentRouteDistance / 1000).toFixed(1);
+    if (durationMins > 60) {
+      const h = Math.floor(durationMins / 60);
+      const m = durationMins % 60;
+      document.getElementById('eta-duration').innerText = `${h}h ${m} min`;
+    } else {
+      document.getElementById('eta-duration').innerText = `${durationMins} min`;
+    }
+
+    document.getElementById('eta-distance').innerText = `${distanceKm} km`;
   }
 
   async function calculateRoute() {
@@ -274,6 +316,15 @@
       }
     }).addTo(map);
 
+    routingControl.on('routesfound', function(e) {
+      const routes = e.routes;
+      const summary = routes[0].summary;
+      currentRouteDuration = summary.totalTime;
+      currentRouteDistance = summary.totalDistance;
+
+      updateETAPanel();
+    });
+
     routeBtn.innerText = "Rechercher l'itinéraire";
     routeBtn.style.opacity = "1";
 
@@ -286,11 +337,31 @@
     document.getElementById('main-buttons').style.display = 'none';
     document.getElementById('btn-start-nav').style.display = 'none';
 
+    document.querySelector('.leaflet-routing-container').style.display = 'none';
+
     document.getElementById('btn-stop-nav').style.display = 'block';
+
+    document.getElementById('eta-panel').style.display = 'flex';
+
+    if (routingControl) {
+      routingControl.options.fitSelectedRoutes = false;
+    }
 
     if (userLocation) {
       map.setView(userLocation, 17);
     }
+
+    navInterval = setInterval(() => {
+      if (userLocation && routingControl) {
+        const waypoints = routingControl.getWaypoints();
+
+        waypoints[0].latLng = userLocation;
+
+        routingControl.setWaypoints(waypoints);
+
+        map.setView(userLocation, 17);
+      }
+    }, 30000);
   }
 
   function stopNavigation() {
@@ -299,6 +370,19 @@
     document.getElementById('main-buttons').style.display = 'grid';
     document.getElementById('btn-start-nav').style.display = 'block';
     document.getElementById('btn-stop-nav').style.display = 'none';
+
+    const routingContainer = document.querySelector('.leaflet-routing-container');
+    if (routingContainer) routingContainer.style.display = 'block';
+
+    document.getElementById('eta-panel').style.display = 'none';
+
+    if (routingControl) {
+      routingControl.options.fitSelectedRoutes = true;
+    }
+
+    if (navInterval) {
+      clearInterval(navInterval);
+    }
 
     if (userLocation) {
       map.setView(userLocation, 13);

@@ -25,3 +25,15 @@ export async function getUserByUsername(username) {
         throw err;
     }
 }
+
+export async function SaveFavoritePlace(userId, PlaceName, placeId) {
+    try {
+        const [result] = await db.query(
+            'INSERT INTO saved_locations (user_id, label, address) VALUES (?,?,?)',
+            [userId, PlaceName, placeId]
+        );
+        return result.insertId;
+    } catch (err) {
+        console.error('Insert error:', err.message);
+    }
+}
