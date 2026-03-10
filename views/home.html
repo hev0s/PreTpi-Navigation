@@ -217,6 +217,9 @@
               function(position) {
                 userLocation = L.latLng(position.coords.latitude, position.coords.longitude);
 
+                // Récupération de l'orientation (null si inactif ou immobile)
+                const heading = position.coords.heading;
+
                 if (!userMarker) {
                   const userIcon = L.divIcon({
                     className: 'user-marker',
@@ -230,6 +233,13 @@
                   userMarker.setLatLng(userLocation);
                   if (isNavigating) {
                     map.setView(userLocation, 17);
+
+                    // Rotation de la carte
+                    if (heading !== null && !isNaN(heading)) {
+                      const mapDiv = document.getElementById('map');
+                      mapDiv.style.transition = "transform 0.5s linear";
+                      mapDiv.style.transform = `rotate(${-heading}deg)`;
+                    }
                   }
                 }
               },
@@ -406,6 +416,10 @@
   function stopNavigation() {
     isNavigating = false;
     releaseWakeLock();
+
+    // Réinitialisation de la rotation de la carte
+    const mapDiv = document.getElementById('map');
+    mapDiv.style.transform = `rotate(0deg)`;
 
     document.getElementById('waypoints-container').style.display = 'flex';
     document.getElementById('btn-add-stop').style.display = 'block';
