@@ -16,42 +16,50 @@ const verifyToken = (req, res, next) => {
     });
 };
 
-// Post avec Photon
+// --- GÉOCODAGE ---
 router.post('/geocode', verifyToken, async (req, res) => {
     const { address, lat, lon } = req.body;
 
     if (!address) return res.status(400).json({ error: 'Adresse manquante' });
 
     try {
-        let apiUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(address)}&limit=1`;
+        // Suggestion avec Nominatim
+        const nomResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`, {
+            method: 'GET',
+            headers: { 'User-Agent': 'PreTpi-Navigation-App/1.0 (Projet_TPI_CPNV)' }
+        });
 
+        if (nomResponse.ok) {
+            const nomData = await nomResponse.json();
+            if (nomData && nomData.length > 0) {
+                return res.status(200).json({ lat: nomData[0].lat, lon: nomData[0].lon });
+            }
+        }
+
+        // Suggestion avec Photon
+        let photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(address)}&limit=1`;
         if (lat && lon) {
-            apiUrl += `&lat=${lat}&lon=${lon}`;
-        } else {
-            apiUrl += `&lat=46.8&lon=6.5`;
+            photonUrl += `&lat=${lat}&lon=${lon}`;
         }
 
-        const response = await fetch(apiUrl);
+        const photonResponse = await fetch(photonUrl);
 
-        if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
-
-        const data = await response.json();
-
-        // Photon renvoie les données au format GeoJSON
-        if (data.features && data.features.length > 0) {
-            //Gestion de GeoJSON
-            const coords = data.features[0].geometry.coordinates;
-            res.status(200).json({ lat: coords[1], lon: coords[0] });
-        } else {
-            res.status(404).json({ error: 'Adresse introuvable' });
+        if (photonResponse.ok) {
+            const photonData = await photonResponse.json();
+            if (photonData.features && photonData.features.length > 0) {
+                const coords = photonData.features[0].geometry.coordinates;
+                return res.status(200).json({ lat: coords[1], lon: coords[0] });
+            }
         }
+
+        res.status(404).json({ error: 'Adresse introuvable' });
+
     } catch (error) {
         console.error("Erreur de géocodage:", error);
         res.status(500).json({ error: 'Erreur lors du calcul' });
     }
 });
 
-// API Photon avec priorité GPS (suggestion)
 router.post('/autocomplete', verifyToken, async (req, res) => {
     const { text, lat, lon } = req.body;
     if (!text) return res.status(400).json({ error: 'Texte manquant' });
@@ -61,8 +69,6 @@ router.post('/autocomplete', verifyToken, async (req, res) => {
 
         if (lat && lon) {
             apiUrl += `&lat=${lat}&lon=${lon}`;
-        } else {
-            apiUrl += `&lat=46.8&lon=6.5`;
         }
 
         const response = await fetch(apiUrl);
@@ -82,6 +88,8 @@ router.post('/autocomplete', verifyToken, async (req, res) => {
 
             let city = p.city || p.town || p.village;
             if (city && !parts.includes(city)) parts.push(city);
+
+            if (p.country && !parts.includes(p.country)) parts.push(p.country);
 
             return parts.join(', ');
         });
