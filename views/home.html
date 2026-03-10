@@ -54,7 +54,6 @@
     }
     .autocomplete-list li:hover { background-color: #f8f9fa; color: #1a73e8; }
     .autocomplete-list li:last-child { border-bottom: none; }
-    /* ------------------------------------------------- */
 
     .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     button {
@@ -190,34 +189,24 @@
   let userLocation = null;
   let userMarker = null;
 
-  // Variables infos trajet
-  let currentRouteDuration = 0; // en secondes
-  let currentRouteDistance = 0; // en mètres
+  let currentRouteDuration = 0;
+  let currentRouteDistance = 0;
   let navInterval = null;
 
-  // variable écran
   let isNavigating = false;
   let wakeLock = null;
 
-  // Fonction bloque verrouillage écran
   async function requestWakeLock() {
     try {
       if ('wakeLock' in navigator) {
         wakeLock = await navigator.wakeLock.request('screen');
-        console.log('Écran maintenu allumé');
       }
-    } catch (err) {
-      console.error(`Erreur WakeLock: ${err.name}, ${err.message}`);
-    }
+    } catch (err) {}
   }
 
-  // Fonction débloque verrouillage écran
   function releaseWakeLock() {
     if (wakeLock !== null) {
-      wakeLock.release().then(() => {
-        wakeLock = null;
-        console.log('Extinction de l\'écran réautorisée');
-      });
+      wakeLock.release().then(() => { wakeLock = null; });
     }
   }
 
@@ -237,7 +226,6 @@
               function(position) {
                 userLocation = L.latLng(position.coords.latitude, position.coords.longitude);
 
-                // Récupération de l'orientation (null si inactif ou immobile)
                 const heading = position.coords.heading;
 
                 if (!userMarker) {
@@ -254,7 +242,6 @@
                   if (isNavigating) {
                     map.setView(userLocation, 17);
 
-                    // Rotation de la carte
                     if (heading !== null && !isNaN(heading)) {
                       const mapDiv = document.getElementById('map');
                       mapDiv.style.transition = "transform 0.5s linear";
@@ -273,43 +260,49 @@
 
   let autocompleteTimeout = null;
 
-  // Regarde ce qui est tapé
   document.getElementById('waypoints-container').addEventListener('input', function(e) {
     if (e.target.classList.contains('waypoint-input')) {
       const input = e.target;
       const val = input.value;
 
-      closeAllLists(); // On efface les anciennes suggestions
-
-      if (!val || val.length < 3) return; // Au moins 3 lettres pour commencer la recherche
+      if (!val || val.length < 3) {
+        closeAllLists();
+        return;
+      }
 
       clearTimeout(autocompleteTimeout);
 
       autocompleteTimeout = setTimeout(async () => {
         try {
+          let requestBody = { text: val };
+          if (userLocation) {
+            requestBody.lat = userLocation.lat;
+            requestBody.lon = userLocation.lng;
+          }
+
           const response = await fetch(`${API_URL}/api/navigation/autocomplete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-            body: JSON.stringify({ text: val })
+            body: JSON.stringify(requestBody)
           });
 
           if (response.ok) {
             const suggestions = await response.json();
+            closeAllLists();
+
             if (suggestions.length === 0) return;
 
-            // Création de suggestion
             const list = document.createElement('ul');
             list.setAttribute('class', 'autocomplete-list');
             input.parentNode.appendChild(list);
 
             suggestions.forEach(suggest => {
               const item = document.createElement('li');
-
               const cleanText = suggest.split(',').slice(0, 3).join(',');
               item.innerText = cleanText;
 
               item.addEventListener('click', () => {
-                input.value = cleanText; // Remplissage du champ
+                input.value = cleanText;
                 closeAllLists();
               });
               list.appendChild(item);
@@ -325,7 +318,6 @@
     lists.forEach(l => l.remove());
   }
 
-  // Onclick inside ferme la liste de suggestion
   document.addEventListener('click', function(e) {
     if (!e.target.classList.contains('waypoint-input')) {
       closeAllLists();
@@ -348,13 +340,19 @@
 
   async function geocodeAddress(address) {
     try {
+      let requestBody = { address: address };
+      if (userLocation) {
+        requestBody.lat = userLocation.lat;
+        requestBody.lon = userLocation.lng;
+      }
+
       const response = await fetch(`${API_URL}/api/navigation/geocode`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ address: address })
+        body: JSON.stringify(requestBody)
       });
 
       if (response.ok) {
@@ -448,7 +446,6 @@
       }
     }).addTo(map);
 
-    // Événement déclenché quand le calcul a réussi
     routingControl.on('routesfound', function(e) {
       const routes = e.routes;
       const summary = routes[0].summary;
@@ -457,17 +454,14 @@
 
       updateETAPanel();
 
-      // On affiche le bouton uniquement si la route a pu être calculée
       routeBtn.innerText = "Rechercher l'itinéraire";
       routeBtn.style.opacity = "1";
       document.getElementById('btn-start-nav').style.display = 'block';
     });
 
-    // Vérification si route impossible
     routingControl.on('routingerror', function(err) {
       alert("📍 Impossible de calculer un itinéraire. La destination semble inatteignable par la route.");
 
-      // On réinitialise l'interface
       routeBtn.innerText = "Rechercher l'itinéraire";
       routeBtn.style.opacity = "1";
       document.getElementById('btn-start-nav').style.display = 'none';
@@ -519,7 +513,6 @@
     isNavigating = false;
     releaseWakeLock();
 
-    // Réinitialisation de la rotation de la carte
     const mapDiv = document.getElementById('map');
     mapDiv.style.transform = `rotate(0deg)`;
 
