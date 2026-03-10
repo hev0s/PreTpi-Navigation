@@ -335,7 +335,7 @@
     input.placeholder = '🛑 Étape supplémentaire...';
 
     wrapper.appendChild(input);
-    container.appendChild(wrapper);
+    container.insertBefore(wrapper, container.lastElementChild);
   }
 
   async function geocodeAddress(address) {
