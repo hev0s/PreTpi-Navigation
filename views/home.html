@@ -362,6 +362,7 @@
       }
     }).addTo(map);
 
+    // Événement déclenché quand le calcul a réussi
     routingControl.on('routesfound', function(e) {
       const routes = e.routes;
       const summary = routes[0].summary;
@@ -369,12 +370,27 @@
       currentRouteDistance = summary.totalDistance;
 
       updateETAPanel();
+
+      // On affiche le bouton uniquement si la route a pu être calculée
+      routeBtn.innerText = "Rechercher l'itinéraire";
+      routeBtn.style.opacity = "1";
+      document.getElementById('btn-start-nav').style.display = 'block';
     });
 
-    routeBtn.innerText = "Rechercher l'itinéraire";
-    routeBtn.style.opacity = "1";
+    // Vérification si route impossible
+    routingControl.on('routingerror', function(err) {
+      alert("📍 Impossible de calculer un itinéraire. La destination semble inatteignable par la route.");
 
-    document.getElementById('btn-start-nav').style.display = 'block';
+      // On réinitialise l'interface
+      routeBtn.innerText = "Rechercher l'itinéraire";
+      routeBtn.style.opacity = "1";
+      document.getElementById('btn-start-nav').style.display = 'none';
+
+      if (routingControl) {
+        map.removeControl(routingControl);
+        routingControl = null;
+      }
+    });
   }
 
   function startNavigation() {
