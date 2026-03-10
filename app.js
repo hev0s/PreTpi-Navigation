@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 app.use(cors({
-    origin: 'https://tpi26nde.mycpnv.ch', // L'URL de votre front-end
+    origin: 'https://tpi26nde.mycpnv.ch', // L'URL du front-end
     credentials: true
 }));
 

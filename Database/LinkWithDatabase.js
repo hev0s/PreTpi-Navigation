@@ -26,6 +26,14 @@ export async function getUserByUsername(username) {
     }
 }
 
+export async function deleteUser(userId) {
+    try {
+        await db.query('DELETE FROM users WHERE id = ?', [userId]);
+    } catch (err) {
+        console.error('Delete error:', err.message);
+    }
+}
+
 export async function setFavoritePlace(userId, PlaceName, placeId) {
     try {
         const [result] = await db.query(
