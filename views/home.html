@@ -29,7 +29,12 @@
       gap: 15px;
     }
 
-    .input-group { display: flex; flex-direction: column; gap: 10px; }
+    .input-group { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+
+    /* Nouvelles classes pour aligner les champs et les boutons */
+    .waypoint-row { display: flex; gap: 6px; align-items: center; width: 100%; }
+    .waypoint-row .autocomplete-wrapper { flex-grow: 1; position: relative; width: 100%; }
+
     input {
       padding: 14px 16px;
       border: 1px solid #dadce0;
@@ -42,7 +47,6 @@
     }
     input:focus { outline: none; border-color: #1a73e8; background-color: white; box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2); }
 
-    .autocomplete-wrapper { position: relative; }
     .autocomplete-list {
       position: absolute; top: 100%; left: 0; right: 0; background: white;
       border: 1px solid #dadce0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -55,6 +59,16 @@
     .autocomplete-list li:hover { background-color: #f8f9fa; color: #1a73e8; }
     .autocomplete-list li:last-child { border-bottom: none; }
 
+    .waypoint-btn {
+      padding: 0; width: 38px; height: 38px; min-width: 38px;
+      border-radius: 8px; display: flex; justify-content: center; align-items: center;
+      font-size: 16px; background: white; color: #5f6368; border: 1px solid #dadce0;
+      transition: all 0.2s; cursor: pointer;
+    }
+    .waypoint-btn:hover { background: #f8f9fa; border-color: #1a73e8; color: #1a73e8; }
+    .btn-del { color: #ea4335; }
+    .btn-del:hover { background: #fce8e6; border-color: #ea4335; color: #ea4335; }
+
     .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     button {
       padding: 12px;
@@ -64,10 +78,6 @@
       font-size: 15px;
       font-weight: 600;
       transition: transform 0.1s, filter 0.2s;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 6px;
     }
     button:active { transform: scale(0.97); }
     button:hover { filter: brightness(0.95); }
@@ -150,11 +160,15 @@
 
 <div id="controls">
   <div class="input-group" id="waypoints-container">
-    <div class="autocomplete-wrapper">
-      <input type="text" class="waypoint-input" placeholder="📍 Votre position (Laissez vide)">
+    <div class="waypoint-row">
+      <div class="autocomplete-wrapper">
+        <input type="text" class="waypoint-input" placeholder="📍 Votre position (Laissez vide)">
+      </div>
     </div>
-    <div class="autocomplete-wrapper">
-      <input type="text" class="waypoint-input" placeholder="🏁 Destination">
+    <div class="waypoint-row">
+      <div class="autocomplete-wrapper">
+        <input type="text" class="waypoint-input" placeholder="🏁 Destination">
+      </div>
     </div>
   </div>
 
@@ -326,6 +340,10 @@
 
   function addStop() {
     const container = document.getElementById('waypoints-container');
+
+    const row = document.createElement('div');
+    row.className = 'waypoint-row';
+
     const wrapper = document.createElement('div');
     wrapper.className = 'autocomplete-wrapper';
 
@@ -335,7 +353,50 @@
     input.placeholder = '🛑 Étape supplémentaire...';
 
     wrapper.appendChild(input);
-    container.insertBefore(wrapper, container.lastElementChild);
+    row.appendChild(wrapper);
+
+    // Boutons de contrôle pour monter ou descendre et supprimer
+    const btnUp = document.createElement('button');
+    btnUp.type = 'button';
+    btnUp.className = 'waypoint-btn';
+    btnUp.innerHTML = '↑';
+    btnUp.onclick = () => moveStop(row, -1);
+
+    const btnDown = document.createElement('button');
+    btnDown.type = 'button';
+    btnDown.className = 'waypoint-btn';
+    btnDown.innerHTML = '↓';
+    btnDown.onclick = () => moveStop(row, 1);
+
+    const btnDel = document.createElement('button');
+    btnDel.type = 'button';
+    btnDel.className = 'waypoint-btn btn-del';
+    btnDel.innerHTML = '✕';
+    btnDel.onclick = () => row.remove();
+
+    row.appendChild(btnUp);
+    row.appendChild(btnDown);
+    row.appendChild(btnDel);
+
+    // Insertion du champs juste avant la Destination
+    container.insertBefore(row, container.lastElementChild);
+  }
+
+  // Fonction pour réordonner les étapes
+  function moveStop(row, direction) {
+    const container = document.getElementById('waypoints-container');
+    const children = Array.from(container.children);
+    const index = children.indexOf(row);
+
+    // Bloque pour ne pas dépasser le champ de Départ (index 0)
+    if (direction === -1 && index > 1) {
+      container.insertBefore(row, children[index - 1]);
+    }
+    // Bloque pour ne pas dépasser le champ de Destination (index -1)
+    else if (direction === 1 && index < children.length - 2) {
+      // +2 car insertBefore place l'étape avant la Destination
+      container.insertBefore(row, children[index + 2]);
+    }
   }
 
   async function geocodeAddress(address) {
