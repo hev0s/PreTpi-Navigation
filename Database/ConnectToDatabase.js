@@ -10,19 +10,18 @@ const db = mysql.createPool({
     database: process.env.DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit : 0
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000
 });
 
-const testConnection = async () => {
-    try {
-        const connection = await db.getConnection();
+db.getConnection()
+    .then(connection => {
         console.log('Connecté à la base distante Swisscenter !');
         connection.release();
-    } catch (err) {
-        console.error('Erreur de connexion : ' + err.message);
-    }
-};
-
-testConnection();
+    })
+    .catch(err => {
+        console.error('Erreur critique de connexion base de données : ' + err.message);
+    });
 
 export default db;
