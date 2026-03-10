@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// Vérification du token
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     if (!authHeader) return res.status(403).json({ error: 'Aucun token fourni' });
@@ -16,25 +17,16 @@ const verifyToken = (req, res, next) => {
     });
 };
 
+// Geocodage avec adresse
 router.post('/geocode', verifyToken, async (req, res) => {
     const { address } = req.body;
-
-    if (!address) {
-        return res.status(400).json({ error: 'Adresse manquante' });
-    }
+    if (!address) return res.status(400).json({ error: 'Adresse manquante' });
 
     try {
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`, {
             method: 'GET',
-            headers: {
-                'User-Agent': 'PreTpi-Navigation-App/1.0 (Projet_TPI_CPNV)'
-            }
+            headers: { 'User-Agent': 'PreTpi-Navigation-App/1.0 (Projet_TPI_CPNV)' }
         });
-
-        if (!response.ok) {
-            throw new Error(`Erreur HTTP: ${response.status}`);
-        }
-
         const data = await response.json();
 
         if (data && data.length > 0) {
@@ -43,8 +35,27 @@ router.post('/geocode', verifyToken, async (req, res) => {
             res.status(404).json({ error: 'Adresse introuvable' });
         }
     } catch (error) {
-        console.error("Erreur de géocodage sur le serveur:", error);
         res.status(500).json({ error: 'Erreur lors du calcul' });
+    }
+});
+
+// Suggestion de destination
+router.post('/autocomplete', verifyToken, async (req, res) => {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: 'Texte manquant' });
+
+    try {
+        // limite à 5 résultats
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5`, {
+            method: 'GET',
+            headers: { 'User-Agent': 'PreTpi-Navigation-App/1.0 (Projet_TPI_CPNV)' }
+        });
+        const data = await response.json();
+
+        const suggestions = data.map(place => place.display_name);
+        res.status(200).json(suggestions);
+    } catch (error) {
+        res.status(500).json({ error: 'Erreur serveur' });
     }
 });
 
