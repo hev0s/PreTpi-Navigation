@@ -30,6 +30,7 @@
 
     .input-group { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 
+    /* Nouvelles classes pour aligner les champs et les boutons */
     .waypoint-row { display: flex; gap: 6px; align-items: center; width: 100%; }
     .waypoint-row .autocomplete-wrapper { flex-grow: 1; position: relative; width: 100%; }
 
@@ -243,11 +244,11 @@
                 if (!userMarker) {
                   const userIcon = L.divIcon({
                     className: 'user-marker',
-                    html: '<img id="gps-icon" src="/images/GPS.png" style="width: 48px; height: 48px; transition: transform 0.3s linear; transform-origin: center center;">',
-                    iconSize: [48, 48],
-                    iconAnchor: [24, 24]
+                    html: '<div style="background-color: #1a73e8; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>',
+                    iconSize: [22, 22],
+                    iconAnchor: [11, 11]
                   });
-                  userMarker = L.marker(userLocation, {icon: userIcon, zIndexOffset: 1000}).addTo(map);
+                  userMarker = L.marker(userLocation, {icon: userIcon}).addTo(map);
                   map.setView(userLocation, 15);
                 } else {
                   userMarker.setLatLng(userLocation);
@@ -262,15 +263,6 @@
                     }
                   }
                 }
-
-                // Rotation de l'icône
-                if (heading !== null && !isNaN(heading)) {
-                  const gpsIcon = document.getElementById('gps-icon');
-                  if (gpsIcon) {
-                    gpsIcon.style.transform = `rotate(${heading}deg)`;
-                  }
-                }
-
               },
               function(error) {},
               { enableHighAccuracy: true, maximumAge: 0, timeout: 2000 }

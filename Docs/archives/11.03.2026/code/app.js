@@ -16,9 +16,6 @@ app.use(cors({
     credentials: true
 }));
 
-// Le dossier des images
-app.use('/images', express.static(path.join(__dirname, 'Docs/Images/Edited')));
-
 // HTML
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'views/index.html'));
