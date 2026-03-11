@@ -237,13 +237,12 @@
       navigator.geolocation.watchPosition(
               function(position) {
                 userLocation = L.latLng(position.coords.latitude, position.coords.longitude);
-
                 const heading = position.coords.heading;
 
                 if (!userMarker) {
                   const userIcon = L.divIcon({
                     className: 'user-marker',
-                    html: '<img id="gps-icon" src="/images/GPS.png" style="width: 48px; height: 48px; transition: transform 0.3s linear; transform-origin: center center;">',
+                    html: `<img id="gps-icon" src="${API_URL}/images/GPS.png" style="width: 48px; height: 48px; transition: transform 0.3s linear; transform-origin: center center;">`,
                     iconSize: [48, 48],
                     iconAnchor: [24, 24]
                   });
@@ -272,7 +271,9 @@
                 }
 
               },
-              function(error) {},
+              function(error) {
+                console.error("Erreur GPS:", error);
+              },
               { enableHighAccuracy: true, maximumAge: 0, timeout: 2000 }
       );
     } else {
@@ -396,13 +397,10 @@
     const children = Array.from(container.children);
     const index = children.indexOf(row);
 
-    // Bloque pour ne pas dépasser le champ de Départ (index 0)
     if (direction === -1 && index > 1) {
       container.insertBefore(row, children[index - 1]);
     }
-    // Bloque pour ne pas dépasser le champ de Destination (index -1)
     else if (direction === 1 && index < children.length - 2) {
-      // +2 car insertBefore place l'étape avant la Destination
       container.insertBefore(row, children[index + 2]);
     }
   }
