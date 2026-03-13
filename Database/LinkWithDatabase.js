@@ -58,3 +58,19 @@ export async function getFavoritePlaces(userId) {
         throw err;
     }
 }
+
+export async function deleteFavoritePlace(userId, placeId) {
+    try {
+        await db.query('DELETE FROM saved_locations WHERE user_id = ? AND id = ?', [userId, placeId]);
+    } catch (err) {
+        console.error('Delete error:', err.message);
+    }
+}
+
+export async function postIncident(userId, typeId) {
+    try {
+        await db.query('INSERT INTO incidents (user_id, type_id) VALUES (?,?)', [userId, typeId]);
+    } catch (err) {
+        console.error('Insert error:', err.message);
+    }
+}
