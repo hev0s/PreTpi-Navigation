@@ -208,19 +208,41 @@
   let isNavigating = false;
   let wakeLock = null;
 
+  // Bloquage du verrouillage de l'écran
   async function requestWakeLock() {
     try {
       if ('wakeLock' in navigator) {
         wakeLock = await navigator.wakeLock.request('screen');
+        console.log('Écran maintenu allumé (Wake Lock actif)');
+
+        // Si le système annule la demande
+        wakeLock.addEventListener('release', () => {
+          console.log('Le système a relâché le Wake Lock');
+        });
+      } else {
+        console.warn("L'API Wake Lock n'est pas supportée sur ce navigateur.");
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error(`Impossible de garder l'écran allumé: ${err.name}, ${err.message}`);
+    }
   }
 
   function releaseWakeLock() {
     if (wakeLock !== null) {
-      wakeLock.release().then(() => { wakeLock = null; });
+      wakeLock.release().then(() => {
+        wakeLock = null;
+        console.log('Wake Lock désactivé manuellement');
+      });
     }
   }
+
+  // Réactivation du blockage de verrouillage si on quitte et qu'on revient sur la page
+  document.addEventListener('visibilitychange', async () => {
+    if (isNavigating && document.visibilityState === 'visible') {
+      console.log('Retour sur la page, réactivation du Wake Lock...');
+      await requestWakeLock();
+    }
+  });
 
   function initMap() {
     map = L.map('map', {zoomControl: false}).setView([46.8, 6.5], 10);
@@ -242,7 +264,7 @@
                 if (!userMarker) {
                   const userIcon = L.divIcon({
                     className: 'user-marker',
-                    html: `<img id="gps-icon" src="${API_URL}/images/GPS.png" style="width: 48px; height: 48px; transition: transform 0.3s linear; transform-origin: center center;">`,
+                    html: `<img id="gps-icon" src="${API_URL}/images/GPS.png" style="width: 36px; height: 36px; transition: transform 0.3s linear; transform-origin: center center;">`,
                     iconSize: [48, 48],
                     iconAnchor: [24, 24]
                   });
