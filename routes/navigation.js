@@ -1,5 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+// Ajout de l'import des fonctions de base de données
+import { getActiveIncidents, postIncident, deactivateIncident } from '../Database/LinkWithDatabase.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -16,34 +18,62 @@ const verifyToken = (req, res, next) => {
     });
 };
 
-// --- GÉOCODAGE ---
-router.post('/geocode', verifyToken, async (req, res) => {
-    const { address, lat, lon } = req.body;
+// --- ROUTES INCIDENTS ---
 
-    if (!address) return res.status(400).json({ error: 'Adresse manquante' });
+// 1. Récupérer tous les incidents actifs
+router.get('/incidents', verifyToken, async (req, res) => {
+    try {
+        const incidents = await getActiveIncidents();
+        res.status(200).json(incidents);
+    } catch (err) {
+        res.status(500).json({ error: 'Erreur lors de la récupération des incidents' });
+    }
+});
+
+// 2. Créer un nouvel incident
+router.post('/incidents', verifyToken, async (req, res) => {
+    const { typeId, latitude, longitude, description } = req.body;
+
+    if (!typeId || !latitude || !longitude) {
+        return res.status(400).json({ error: 'Coordonnées ou type d\'incident manquant' });
+    }
 
     try {
-        // Suggestion avec Nominatim
+        const insertId = await postIncident(req.userId, typeId, latitude, longitude, description);
+        res.status(201).json({ success: true, id: insertId });
+    } catch (err) {
+        res.status(500).json({ error: 'Erreur lors du signalement' });
+    }
+});
+
+// 3. Désactiver un incident (quand un utilisateur confirme qu'il n'est plus là)
+router.patch('/incidents/:id/deactivate', verifyToken, async (req, res) => {
+    const incidentId = req.params.id;
+    try {
+        await deactivateIncident(incidentId);
+        res.status(200).json({ success: true, message: "Incident désactivé" });
+    } catch (err) {
+        res.status(500).json({ error: 'Erreur lors de la désactivation' });
+    }
+});
+
+// --- GÉOCODAGE (Existant) ---
+router.post('/geocode', verifyToken, async (req, res) => {
+    const { address, lat, lon } = req.body;
+    if (!address) return res.status(400).json({ error: 'Adresse manquante' });
+    try {
         const nomResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`, {
             method: 'GET',
             headers: { 'User-Agent': 'PreTpi-Navigation-App/1.0 (Projet_TPI_CPNV)' }
         });
-
         if (nomResponse.ok) {
             const nomData = await nomResponse.json();
-            if (nomData && nomData.length > 0) {
-                return res.status(200).json({ lat: nomData[0].lat, lon: nomData[0].lon });
-            }
+            if (nomData && nomData.length > 0) return res.status(200).json({ lat: nomData[0].lat, lon: nomData[0].lon });
         }
-
-        // Suggestion avec Photon
         let photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(address)}&limit=1`;
-        if (lat && lon) {
-            photonUrl += `&lat=${lat}&lon=${lon}`;
-        }
+        if (lat && lon) photonUrl += `&lat=${lat}&lon=${lon}`;
 
         const photonResponse = await fetch(photonUrl);
-
         if (photonResponse.ok) {
             const photonData = await photonResponse.json();
             if (photonData.features && photonData.features.length > 0) {
@@ -51,11 +81,8 @@ router.post('/geocode', verifyToken, async (req, res) => {
                 return res.status(200).json({ lat: coords[1], lon: coords[0] });
             }
         }
-
         res.status(404).json({ error: 'Adresse introuvable' });
-
     } catch (error) {
-        console.error("Erreur de géocodage:", error);
         res.status(500).json({ error: 'Erreur lors du calcul' });
     }
 });
@@ -66,38 +93,26 @@ router.post('/autocomplete', verifyToken, async (req, res) => {
 
     try {
         let apiUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(text)}&limit=5`;
-
-        if (lat && lon) {
-            apiUrl += `&lat=${lat}&lon=${lon}`;
-        }
-
+        if (lat && lon) apiUrl += `&lat=${lat}&lon=${lon}`;
         const response = await fetch(apiUrl);
         const data = await response.json();
-
         const suggestions = data.features.map(f => {
             const p = f.properties;
             let parts = [];
-
             if (p.name && p.name !== p.housenumber) parts.push(p.name);
-
             if (p.street) {
                 let streetStr = p.street;
                 if (p.housenumber) streetStr += " " + p.housenumber;
                 if (!parts.includes(p.street) && !parts.includes(streetStr)) parts.push(streetStr);
             }
-
             let city = p.city || p.town || p.village;
             if (city && !parts.includes(city)) parts.push(city);
-
             if (p.country && !parts.includes(p.country)) parts.push(p.country);
-
             return parts.join(', ');
         });
-
         const uniqueSuggestions = [...new Set(suggestions.filter(s => s !== ''))];
         res.status(200).json(uniqueSuggestions);
     } catch (error) {
-        console.error("Erreur Autocomplete:", error);
         res.status(500).json({ error: 'Erreur serveur' });
     }
 });

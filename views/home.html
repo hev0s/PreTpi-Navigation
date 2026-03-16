@@ -29,7 +29,6 @@
     }
 
     .input-group { display: flex; flex-direction: column; gap: 10px; width: 100%; }
-
     .waypoint-row { display: flex; gap: 6px; align-items: center; width: 100%; }
     .waypoint-row .autocomplete-wrapper { flex-grow: 1; position: relative; width: 100%; }
 
@@ -121,8 +120,48 @@
     #eta-details { font-size: 16px; color: #5f6368; font-weight: 500; }
     .eta-highlight { color: #34a853; font-weight: 700; }
 
+    /* --- STYLES MODALE INCIDENTS --- */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 3000; justify-content: center; align-items: center; }
+    .modal-content { background: white; padding: 20px; border-radius: 16px; width: 90%; max-width: 400px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
+    .incident-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 15px; }
+    .btn-inc-type { display: flex; flex-direction: column; align-items: center; padding: 10px; border: 1px solid #dadce0; border-radius: 8px; background: white; cursor: pointer; font-size: 13px; font-weight: 600; color: #3c4043; }
+    .btn-inc-type img { width: 40px; height: 40px; margin-bottom: 5px; }
+    .btn-inc-type:hover { background: #f1f3f4; border-color: #1a73e8; }
+    .modal-close { margin-top: 15px; width: 100%; background: #f1f3f4; color: #3c4043; }
+
+    /* --- BOUTON FLOTTANT (FAB) --- */
+    #btn-fab-incident {
+      display: none; /* Caché par défaut, ne s'affiche qu'en navigation */
+      position: absolute;
+      right: 20px;
+      bottom: 130px; /* Assez haut pour ne pas toucher le panneau ETA */
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: #ea4335;
+      color: white;
+      font-size: 34px;
+      font-weight: normal;
+      border: none;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+      z-index: 2000;
+      cursor: pointer;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.1s;
+    }
+    #btn-fab-incident:active { transform: scale(0.95); }
+
+    /* --- PANNEAU VÉRIFICATION --- */
+    #verify-panel { display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 15px 25px; border-radius: 16px; z-index: 2500; box-shadow: 0 4px 24px rgba(0,0,0,0.2); text-align: center; width: 80%; max-width: 350px;}
+    #verify-panel h3 { margin: 0 0 10px 0; font-size: 16px; color: #202124;}
+    .verify-actions { display: flex; gap: 10px; justify-content: center; }
+    .btn-yes { background: #34a853; color: white; flex: 1; }
+    .btn-no { background: #ea4335; color: white; flex: 1; }
+
     @media (max-width: 600px) {
       #controls { top: 10px; left: 10px; right: 10px; width: auto; }
+      .incident-grid { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -143,7 +182,16 @@
             .then(response => {
               if (response.ok) {
                 document.getElementById('main-body').style.display = 'block';
+
+                // On injecte l'API_URL devant chaque image de la modale pour les incidents
+                document.querySelectorAll('.btn-inc-type img').forEach(img => {
+                  const filename = img.getAttribute('data-filename');
+                  if (filename) img.src = `${API_URL}/images/${filename}`;
+                });
+
                 initMap();
+                fetchIncidents();
+                setInterval(fetchIncidents, 15000); //
               } else {
                 localStorage.removeItem('token');
                 window.location.replace('index.html');
@@ -174,7 +222,7 @@
 
   <div class="btn-group" id="main-buttons">
     <button class="btn-route" onclick="calculateRoute()">Rechercher l'itinéraire</button>
-    <button class="btn-incident" onclick="reportIncident()">⚠️ Signaler</button>
+    <button class="btn-incident" onclick="openIncidentModal()">⚠️ Signaler</button>
     <button class="btn-logout" onclick="logout()">Déconnexion</button>
   </div>
 
@@ -187,6 +235,31 @@
   <div id="eta-details">
     <span id="eta-duration" class="eta-highlight">-- min</span> •
     <span id="eta-distance">-- km</span>
+  </div>
+</div>
+
+<button id="btn-fab-incident" onclick="openIncidentModal()">+</button>
+
+<div class="modal-overlay" id="incident-modal">
+  <div class="modal-content">
+    <h3 style="margin-top:0; text-align: center;">Que voulez-vous signaler ?</h3>
+    <div class="incident-grid">
+      <button class="btn-inc-type" onclick="submitIncident(1)"><img data-filename="Accident.png" alt="Accident">Accident</button>
+      <button class="btn-inc-type" onclick="submitIncident(2)"><img data-filename="Bouchon.png" alt="Bouchon">Bouchon</button>
+      <button class="btn-inc-type" onclick="submitIncident(3)"><img data-filename="Lane_blocked.png" alt="Travaux">Travaux</button>
+      <button class="btn-inc-type" onclick="submitIncident(6)"><img data-filename="Police.png" alt="Police">Police</button>
+      <button class="btn-inc-type" onclick="submitIncident(7)"><img data-filename="Low_Visibility.png" alt="Brouillard">Visibilité</button>
+      <button class="btn-inc-type" onclick="submitIncident(4)"><span style="font-size: 24px; margin-bottom: 5px;">⚠️</span>Danger</button>
+    </div>
+    <button class="modal-close" onclick="closeIncidentModal()">Annuler</button>
+  </div>
+</div>
+
+<div id="verify-panel">
+  <h3 id="verify-text">Un incident a été signalé ici. Est-il toujours présent ?</h3>
+  <div class="verify-actions">
+    <button class="btn-yes" onclick="verifyIncident(true)">Oui</button>
+    <button class="btn-no" onclick="verifyIncident(false)">Non</button>
   </div>
 </div>
 
@@ -208,7 +281,11 @@
   let isNavigating = false;
   let wakeLock = null;
 
-  // Bloquage du verrouillage de l'écran
+  let activeIncidents = [];
+  let incidentLayerGroup;
+  let promptedIncidents = new Set();
+  let currentVerifyIncidentId = null;
+
   async function requestWakeLock() {
     try {
       if ('wakeLock' in navigator) {
@@ -246,6 +323,7 @@
 
   function initMap() {
     map = L.map('map', {zoomControl: false}).setView([46.8, 6.5], 10);
+    incidentLayerGroup = L.layerGroup().addTo(map);
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     document.querySelector('.leaflet-control-zoom').style.marginBottom = '100px';
@@ -287,19 +365,146 @@
                 // Rotation de l'icône
                 if (heading !== null && !isNaN(heading)) {
                   const gpsIcon = document.getElementById('gps-icon');
-                  if (gpsIcon) {
-                    gpsIcon.style.transform = `rotate(${heading}deg)`;
-                  }
+                  if (gpsIcon) gpsIcon.style.transform = `rotate(${heading}deg)`;
                 }
 
+                checkIncidentProximity();
+
               },
-              function(error) {
-                console.error("Erreur GPS:", error);
-              },
-              { enableHighAccuracy: true, maximumAge: 0, timeout: 2000 }
+              function(error) { console.error("Erreur GPS:", error); },
+              { enableHighAccuracy: true, maximumAge: 0, timeout: 2000 } // Mise à jour de la position limitée à 2 secondes
       );
     } else {
       alert("La géolocalisation n'est pas supportée par votre téléphone.");
+    }
+  }
+
+  async function fetchIncidents() {
+    try {
+      const response = await fetch(`${API_URL}/api/navigation/incidents`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (response.ok) {
+        activeIncidents = await response.json();
+        renderIncidentsOnMap();
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des incidents", error);
+    }
+  }
+
+  function getIconPathForIncident(typeLabel) {
+    const label = typeLabel.toLowerCase();
+    if(label.includes('accident')) return `${API_URL}/images/Accident.png`;
+    if(label.includes('bouchon')) return `${API_URL}/images/Bouchon.png`;
+    if(label.includes('police') || label.includes('radar')) return `${API_URL}/images/Police.png`;
+    if(label.includes('travaux') || label.includes('bloquée')) return `${API_URL}/images/Lane_blocked.png`;
+    if(label.includes('brouillard') || label.includes('visibilité')) return `${API_URL}/images/Low_Visibility.png`;
+    return `${API_URL}/images/Accident.png`;
+  }
+
+  function renderIncidentsOnMap() {
+    incidentLayerGroup.clearLayers();
+    activeIncidents.forEach(incident => {
+      const iconUrl = getIconPathForIncident(incident.type);
+      const customIcon = L.icon({
+        iconUrl: iconUrl,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+        popupAnchor: [0, -20]
+      });
+
+      L.marker([incident.latitude, incident.longitude], {icon: customIcon})
+              .bindPopup(`<b>${incident.type}</b>${incident.description ? '<br>'+incident.description : ''}`)
+              .addTo(incidentLayerGroup);
+    });
+  }
+
+  function openIncidentModal() {
+    if (!userLocation) {
+      alert("Veuillez attendre que le GPS trouve votre position avant de signaler.");
+      return;
+    }
+    document.getElementById('incident-modal').style.display = 'flex';
+  }
+
+  function closeIncidentModal() {
+    document.getElementById('incident-modal').style.display = 'none';
+  }
+
+  async function submitIncident(typeId) {
+    closeIncidentModal();
+    try {
+      const response = await fetch(`${API_URL}/api/navigation/incidents`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          typeId: typeId,
+          latitude: userLocation.lat,
+          longitude: userLocation.lng
+        })
+      });
+
+      if (response.ok) {
+        fetchIncidents();
+      } else {
+        alert("Erreur lors du signalement.");
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function checkIncidentProximity() {
+    if (!userLocation || activeIncidents.length === 0) return;
+
+    activeIncidents.forEach(incident => {
+      if (promptedIncidents.has(incident.id)) return;
+
+      const incidentLocation = L.latLng(incident.latitude, incident.longitude);
+      const distance = userLocation.distanceTo(incidentLocation);
+
+      if (distance < 50) {
+        promptVerification(incident);
+      }
+    });
+  }
+
+  let verifyTimeout;
+  function promptVerification(incident) {
+    promptedIncidents.add(incident.id);
+    currentVerifyIncidentId = incident.id;
+
+    document.getElementById('verify-text').innerText = `L'incident "${incident.type}" est-il toujours présent ?`;
+    document.getElementById('verify-panel').style.display = 'block';
+
+    clearTimeout(verifyTimeout);
+    verifyTimeout = setTimeout(() => {
+      document.getElementById('verify-panel').style.display = 'none';
+      currentVerifyIncidentId = null;
+    }, 15000);
+  }
+
+  async function verifyIncident(isStillActive) {
+    document.getElementById('verify-panel').style.display = 'none';
+    clearTimeout(verifyTimeout);
+
+    const incidentId = currentVerifyIncidentId;
+    currentVerifyIncidentId = null;
+
+    if (!isStillActive && incidentId) {
+      try {
+        await fetch(`${API_URL}/api/navigation/incidents/${incidentId}/deactivate`, {
+          method: 'PATCH',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        fetchIncidents();
+      } catch (error) {
+        console.error(error);
+      }
     }
   }
 
@@ -408,21 +613,16 @@
     row.appendChild(btnUp);
     row.appendChild(btnDown);
     row.appendChild(btnDel);
-
-    // Insertion du champs juste avant la Destination
     container.insertBefore(row, container.lastElementChild);
   }
 
-  // Fonction pour réordonner les étapes
   function moveStop(row, direction) {
     const container = document.getElementById('waypoints-container');
     const children = Array.from(container.children);
     const index = children.indexOf(row);
-
     if (direction === -1 && index > 1) {
       container.insertBefore(row, children[index - 1]);
-    }
-    else if (direction === 1 && index < children.length - 2) {
+    } else if (direction === 1 && index < children.length - 2) {
       container.insertBefore(row, children[index + 2]);
     }
   }
@@ -434,7 +634,6 @@
         requestBody.lat = userLocation.lat;
         requestBody.lon = userLocation.lng;
       }
-
       const response = await fetch(`${API_URL}/api/navigation/geocode`, {
         method: 'POST',
         headers: {
@@ -443,7 +642,6 @@
         },
         body: JSON.stringify(requestBody)
       });
-
       if (response.ok) {
         const data = await response.json();
         return L.latLng(data.lat, data.lon);
@@ -458,14 +656,11 @@
 
   function updateETAPanel() {
     if (currentRouteDuration === 0) return;
-
     const now = new Date();
     const arrivalTime = new Date(now.getTime() + currentRouteDuration * 1000);
-
     const hours = arrivalTime.getHours().toString().padStart(2, '0');
     const minutes = arrivalTime.getMinutes().toString().padStart(2, '0');
     document.getElementById('eta-time').innerText = `${hours}:${minutes}`;
-
     const durationMins = Math.round(currentRouteDuration / 60);
     const distanceKm = (currentRouteDistance / 1000).toFixed(1);
     if (durationMins > 60) {
@@ -475,7 +670,6 @@
     } else {
       document.getElementById('eta-duration').innerText = `${durationMins} min`;
     }
-
     document.getElementById('eta-distance').innerText = `${distanceKm} km`;
   }
 
@@ -489,11 +683,8 @@
 
     for (let i = 0; i < inputs.length; i++) {
       const address = inputs[i].value.trim();
-
       if (address === "") {
-        if (i === 0 && userLocation) {
-          waypoints.push(userLocation);
-        }
+        if (i === 0 && userLocation) waypoints.push(userLocation);
       } else {
         const latLng = await geocodeAddress(address);
         if (latLng) {
@@ -577,7 +768,7 @@
     document.querySelector('.leaflet-routing-container').style.display = 'none';
 
     document.getElementById('btn-stop-nav').style.display = 'block';
-
+    document.getElementById('btn-fab-incident').style.display = 'flex';
     document.getElementById('eta-panel').style.display = 'flex';
 
     if (routingControl) {
@@ -598,7 +789,7 @@
 
         map.setView(userLocation, 17);
       }
-    }, 30000);
+    }, 10000); // Mise à jour de la map à 10 secondes
   }
 
   function stopNavigation() {
@@ -614,26 +805,16 @@
     document.getElementById('btn-start-nav').style.display = 'block';
     document.getElementById('btn-stop-nav').style.display = 'none';
 
+    document.getElementById('btn-fab-incident').style.display = 'none';
+
     const routingContainer = document.querySelector('.leaflet-routing-container');
     if (routingContainer) routingContainer.style.display = 'block';
 
     document.getElementById('eta-panel').style.display = 'none';
 
-    if (routingControl) {
-      routingControl.options.fitSelectedRoutes = true;
-    }
-
-    if (navInterval) {
-      clearInterval(navInterval);
-    }
-
-    if (userLocation) {
-      map.setView(userLocation, 13);
-    }
-  }
-
-  function reportIncident() {
-    alert("Prochaine étape : Le formulaire de signalement !");
+    if (routingControl) routingControl.options.fitSelectedRoutes = true;
+    if (navInterval) clearInterval(navInterval);
+    if (userLocation) map.setView(userLocation, 13);
   }
 
   function logout() {
