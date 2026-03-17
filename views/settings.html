@@ -21,6 +21,20 @@
         .fav-info strong { color: #202124; display: block; }
         .fav-info span { font-size: 13px; color: #5f6368; }
         .msg { font-size: 14px; margin-top: 5px; }
+
+        /* --- STYLES AUTOCOMPLÉTION --- */
+        .autocomplete-wrapper { position: relative; width: 100%; }
+        .autocomplete-list {
+            position: absolute; top: 100%; left: 0; right: 0; background: white;
+            border: 1px solid #dadce0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 2000; list-style: none; margin: -10px 0 15px 0; padding: 0; max-height: 200px; overflow-y: auto;
+        }
+        .autocomplete-list li {
+            padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f1f3f4;
+            font-size: 14px; color: #3c4043; line-height: 1.4;
+        }
+        .autocomplete-list li:hover { background-color: #f8f9fa; color: #1a73e8; }
+        .autocomplete-list li:last-child { border-bottom: none; }
     </style>
 </head>
 <body style="display: none;" id="main-body">
@@ -63,7 +77,11 @@
     <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
         <h4 id="form-fav-title" style="margin-top: 0; margin-bottom: 10px;">Ajouter un favori</h4>
         <input type="text" id="fav-label" placeholder="Nom (ex: Maison, Travail)">
-        <input type="text" id="fav-address" placeholder="Adresse complète">
+
+        <div class="autocomplete-wrapper">
+            <input type="text" id="fav-address" placeholder="Adresse complète" autocomplete="off">
+        </div>
+
         <div style="display: flex; gap: 10px;">
             <button id="btn-save-fav" class="btn-primary" onclick="saveFavorite()">Ajouter</button>
             <button id="btn-cancel-edit" class="btn-secondary" style="display: none; margin-bottom: 0;" onclick="cancelEdit()">Annuler</button>
@@ -120,6 +138,70 @@
             alert("Erreur de connexion.");
         }
     }
+
+    // --- AUTOCOMPLÉTION DES ADRESSES ---
+    let autocompleteTimeout = null;
+
+    document.getElementById('fav-address').addEventListener('input', function(e) {
+        const input = e.target;
+        const val = input.value;
+
+        if (!val || val.length < 3) {
+            closeAllLists();
+            return;
+        }
+
+        clearTimeout(autocompleteTimeout);
+
+        autocompleteTimeout = setTimeout(async () => {
+            try {
+                let requestBody = { text: val };
+
+                const response = await fetch(`${API_URL}/api/navigation/autocomplete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (response.ok) {
+                    const suggestions = await response.json();
+                    closeAllLists();
+
+                    if (suggestions.length === 0) return;
+
+                    const list = document.createElement('ul');
+                    list.setAttribute('class', 'autocomplete-list');
+                    input.parentNode.appendChild(list);
+
+                    suggestions.forEach(suggest => {
+                        // Nettoyer les suggestions si elles comportent une étoile (pour éviter d'enregistrer "⭐ Maison" comme adresse)
+                        const cleanSuggest = suggest.startsWith('⭐') ? suggest.split('(')[1].replace(')', '') : suggest;
+
+                        const item = document.createElement('li');
+                        const cleanText = cleanSuggest.split(',').slice(0, 3).join(',');
+                        item.innerText = cleanText;
+
+                        item.addEventListener('click', () => {
+                            input.value = cleanText;
+                            closeAllLists();
+                        });
+                        list.appendChild(item);
+                    });
+                }
+            } catch (err) { console.error(err); }
+        }, 400);
+    });
+
+    function closeAllLists() {
+        const lists = document.querySelectorAll('.autocomplete-list');
+        lists.forEach(l => l.remove());
+    }
+
+    document.addEventListener('click', function(e) {
+        if (e.target.id !== 'fav-address') {
+            closeAllLists();
+        }
+    });
 
     // --- GESTION DES FAVORIS ---
     let editFavoriteId = null;
