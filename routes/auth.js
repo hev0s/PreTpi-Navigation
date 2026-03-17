@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { createUser, getUserByUsername, deleteUser, updateUsername } from "../Database/LinkWithDatabase.js";
+
 const router = express.Router();
 const SALT_ROUNDS = 10;
 
@@ -62,6 +63,30 @@ router.post("/login", async (req, res) => {
     }
 });
 
+// --- MIDDLEWARE (vérification avec token) ---
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+
+    if (!authHeader) {
+        return res.status(403).json({ error: 'Aucun token fourni' });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(401).json({ error: 'Token invalide ou expiré' });
+        }
+
+        req.userId = decoded.userId;
+        next();
+    });
+};
+
+router.get("/verify", verifyToken, (req, res) => {
+    res.status(200).json({ valid: true, message: "Accès autorisé" });
+});
+
 // --- MODIFIER LE NOM D'UTILISATEUR ---
 router.put("/user/username", verifyToken, async (req, res) => {
     const { newUsername } = req.body;
@@ -86,30 +111,6 @@ router.delete("/user", verifyToken, async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: 'Erreur lors de la suppression du compte' });
     }
-});
-
-// --- MIDDLEWARE (vérification avec token) ---
-const verifyToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-
-    if (!authHeader) {
-        return res.status(403).json({ error: 'Aucun token fourni' });
-    }
-
-    const token = authHeader.split(' ')[1];
-
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
-        if (err) {
-            return res.status(401).json({ error: 'Token invalide ou expiré' });
-        }
-
-        req.userId = decoded.userId;
-        next();
-    });
-};
-
-router.get("/verify", verifyToken, (req, res) => {
-    res.status(200).json({ valid: true, message: "Accès autorisé" });
 });
 
 export default router;

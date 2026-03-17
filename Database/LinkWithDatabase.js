@@ -77,6 +77,18 @@ export async function deleteFavoritePlace(userId, placeId) {
     }
 }
 
+export async function updateFavoritePlace(userId, placeId, placeName, address, latitude, longitude) {
+    try {
+        await db.query(
+            'UPDATE saved_locations SET label = ?, address = ?, latitude = ?, longitude = ? WHERE user_id = ? AND id = ?',
+            [placeName, address, latitude, longitude, userId, placeId]
+        );
+    } catch (err) {
+        console.error('Update favorite error:', err.message);
+        throw err;
+    }
+}
+
 export async function postIncident(userId, typeId, latitude, longitude, description = null) {
     try {
         const [result] = await db.query(

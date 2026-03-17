@@ -15,7 +15,7 @@
         .btn-primary { background: #1a73e8; color: white; }
         .btn-danger { background: #ea4335; color: white; margin-top: 10px; }
         .btn-secondary { background: #f1f3f4; color: #3c4043; margin-bottom: 20px; }
-        .btn-small { width: auto; padding: 8px 12px; font-size: 13px; }
+        .btn-small { width: auto; padding: 8px 12px; font-size: 13px; margin:0; }
         .fav-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f3f4; }
         .fav-item:last-child { border-bottom: none; }
         .fav-info strong { color: #202124; display: block; }
@@ -61,10 +61,13 @@
     </div>
 
     <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
-        <h4 style="margin-top: 0; margin-bottom: 10px;">Ajouter un favori</h4>
+        <h4 id="form-fav-title" style="margin-top: 0; margin-bottom: 10px;">Ajouter un favori</h4>
         <input type="text" id="fav-label" placeholder="Nom (ex: Maison, Travail)">
         <input type="text" id="fav-address" placeholder="Adresse complète">
-        <button class="btn-primary" onclick="addFavorite()">Ajouter</button>
+        <div style="display: flex; gap: 10px;">
+            <button id="btn-save-fav" class="btn-primary" onclick="saveFavorite()">Ajouter</button>
+            <button id="btn-cancel-edit" class="btn-secondary" style="display: none; margin-bottom: 0;" onclick="cancelEdit()">Annuler</button>
+        </div>
         <p id="msg-fav" class="msg"></p>
     </div>
 
@@ -119,6 +122,8 @@
     }
 
     // --- GESTION DES FAVORIS ---
+    let editFavoriteId = null;
+
     async function loadFavorites() {
         const listContainer = document.getElementById('favorites-list');
         try {
@@ -135,13 +140,18 @@
                 }
 
                 favorites.forEach(fav => {
+                    const safeLabel = fav.label.replace(/'/g, "\\'");
+                    const safeAddress = fav.address.replace(/'/g, "\\'");
                     listContainer.innerHTML += `
                         <div class="fav-item">
                             <div class="fav-info">
                                 <strong>${fav.label}</strong>
                                 <span>${fav.address}</span>
                             </div>
-                            <button class="btn-danger btn-small" onclick="deleteFavorite(${fav.id})">X</button>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn-secondary btn-small" onclick="startEdit(${fav.id}, '${safeLabel}', '${safeAddress}')">✏️</button>
+                                <button class="btn-danger btn-small" onclick="deleteFavorite(${fav.id})">X</button>
+                            </div>
                         </div>
                     `;
                 });
@@ -151,7 +161,27 @@
         }
     }
 
-    async function addFavorite() {
+    function startEdit(id, label, address) {
+        editFavoriteId = id;
+        document.getElementById('form-fav-title').innerText = "Modifier le favori";
+        document.getElementById('fav-label').value = label;
+        document.getElementById('fav-address').value = address;
+        document.getElementById('btn-save-fav').innerText = "Mettre à jour";
+        document.getElementById('btn-cancel-edit').style.display = "block";
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    function cancelEdit() {
+        editFavoriteId = null;
+        document.getElementById('form-fav-title').innerText = "Ajouter un favori";
+        document.getElementById('fav-label').value = '';
+        document.getElementById('fav-address').value = '';
+        document.getElementById('btn-save-fav').innerText = "Ajouter";
+        document.getElementById('btn-cancel-edit').style.display = "none";
+        document.getElementById('msg-fav').innerText = "";
+    }
+
+    async function saveFavorite() {
         const label = document.getElementById('fav-label').value;
         const address = document.getElementById('fav-address').value;
         const msgBox = document.getElementById('msg-fav');
@@ -164,7 +194,6 @@
         msgBox.style.color = "#5f6368"; msgBox.innerText = "Recherche de l'adresse...";
 
         try {
-            // 1. Géocoder l'adresse avec l'API existante
             const geoRes = await fetch(`${API_URL}/api/navigation/geocode`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -177,28 +206,28 @@
             }
 
             const coords = await geoRes.json();
+            const payload = {
+                placeName: label,
+                address: address,
+                latitude: coords.lat,
+                longitude: coords.lon
+            };
 
-            // 2. Sauvegarder le favori
-            const saveRes = await fetch(`${API_URL}/api/navigation/favorites`, {
-                method: 'POST',
+            const method = editFavoriteId ? 'PUT' : 'POST';
+            const url = editFavoriteId ? `${API_URL}/api/navigation/favorites/${editFavoriteId}` : `${API_URL}/api/navigation/favorites`;
+
+            const saveRes = await fetch(url, {
+                method: method,
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({
-                    placeName: label,
-                    address: address,
-                    latitude: coords.lat,
-                    longitude: coords.lon // Note: geocode retourne "lon", vérifiez si votre API attend "longitude" ou "lon"
-                })
+                body: JSON.stringify(payload)
             });
 
             if (saveRes.ok) {
-                document.getElementById('fav-label').value = '';
-                document.getElementById('fav-address').value = '';
-                msgBox.innerText = "";
+                cancelEdit();
                 loadFavorites();
             } else {
                 msgBox.style.color = "red"; msgBox.innerText = "Erreur lors de la sauvegarde.";
             }
-
         } catch (err) {
             msgBox.style.color = "red"; msgBox.innerText = "Erreur serveur.";
         }
@@ -211,7 +240,10 @@
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            if(res.ok) loadFavorites();
+            if(res.ok) {
+                if(editFavoriteId === id) cancelEdit();
+                loadFavorites();
+            }
         } catch (err) {
             console.error("Erreur de suppression", err);
         }
