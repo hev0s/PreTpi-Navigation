@@ -12,6 +12,11 @@
     body { margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; height: 100vh; overflow: hidden; background-color: #e5e3df; }
     #map { position: absolute; top: -25vh; left: -25vw; width: 150vw; height: 150vh; z-index: 1; }
 
+    .leaflet-top { top: calc(25vh + 10px) !important; }
+    .leaflet-right { right: calc(25vw + 10px) !important; }
+    .leaflet-bottom { bottom: calc(25vh + 100px) !important; } /* +100px pour ne pas passer sous le bouton flottant */
+    .leaflet-left { left: calc(25vw + 10px) !important; }
+
     #controls {
       position: absolute;
       top: 20px;
@@ -326,7 +331,6 @@
     incidentLayerGroup = L.layerGroup().addTo(map);
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
-    document.querySelector('.leaflet-control-zoom').style.marginBottom = '100px';
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
