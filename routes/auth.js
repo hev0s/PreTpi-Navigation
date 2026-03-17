@@ -1,8 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { createUser, getUserByUsername } from "../Database/LinkWithDatabase.js";
-
+import { createUser, getUserByUsername, deleteUser, updateUsername } from "../Database/LinkWithDatabase.js";
 const router = express.Router();
 const SALT_ROUNDS = 10;
 
@@ -60,6 +59,32 @@ router.post("/login", async (req, res) => {
         }
     } catch (err) {
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- MODIFIER LE NOM D'UTILISATEUR ---
+router.put("/user/username", verifyToken, async (req, res) => {
+    const { newUsername } = req.body;
+    if (!newUsername) return res.status(400).json({ error: 'Nouveau pseudo requis' });
+
+    try {
+        await updateUsername(req.userId, newUsername);
+        res.status(200).json({ success: true, message: 'Nom mis à jour avec succès' });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'Ce nom d\'utilisateur est déjà pris' });
+        }
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// --- SUPPRIMER LE COMPTE ---
+router.delete("/user", verifyToken, async (req, res) => {
+    try {
+        await deleteUser(req.userId);
+        res.status(200).json({ success: true, message: 'Compte supprimé' });
+    } catch (err) {
+        res.status(500).json({ error: 'Erreur lors de la suppression du compte' });
     }
 });
 

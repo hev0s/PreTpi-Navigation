@@ -34,6 +34,15 @@ export async function deleteUser(userId) {
     }
 }
 
+export async function updateUsername(userId, newUsername) {
+    try {
+        await db.query('UPDATE users SET username = ? WHERE id = ?', [newUsername, userId]);
+    } catch (err) {
+        console.error('Erreur lors de la modification du pseudo:', err.message);
+        throw err;
+    }
+}
+
 export async function setFavoritePlace(userId, placeName, address, latitude, longitude) {
     try {
         const [result] = await db.query(

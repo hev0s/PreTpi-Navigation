@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DuckyRoad - Paramètres</title>
+    <style>
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f3f4; display: flex; justify-content: center; padding: 20px; margin: 0; }
+        .container { background: white; border-radius: 16px; padding: 30px; width: 100%; max-width: 500px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); margin-top: 20px; }
+        h2 { margin-top: 0; color: #202124; display: flex; align-items: center; gap: 10px; }
+        h3 { border-bottom: 1px solid #dadce0; padding-bottom: 10px; color: #3c4043; margin-top: 30px; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #dadce0; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+        input:focus { outline: none; border-color: #1a73e8; }
+        button { padding: 12px 20px; cursor: pointer; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; width: 100%; transition: 0.2s; }
+        .btn-primary { background: #1a73e8; color: white; }
+        .btn-danger { background: #ea4335; color: white; margin-top: 10px; }
+        .btn-secondary { background: #f1f3f4; color: #3c4043; margin-bottom: 20px; }
+        .btn-small { width: auto; padding: 8px 12px; font-size: 13px; }
+        .fav-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f3f4; }
+        .fav-item:last-child { border-bottom: none; }
+        .fav-info strong { color: #202124; display: block; }
+        .fav-info span { font-size: 13px; color: #5f6368; }
+        .msg { font-size: 14px; margin-top: 5px; }
+    </style>
+</head>
+<body style="display: none;" id="main-body">
+
+<script>
+    const API_URL = "https://pretpi-navigation.onrender.com";
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        window.location.replace('index.html');
+    } else {
+        fetch(`${API_URL}/api/verify`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        }).then(res => {
+            if (res.ok) {
+                document.getElementById('main-body').style.display = 'block';
+                loadFavorites();
+            } else {
+                window.location.replace('index.html');
+            }
+        });
+    }
+</script>
+
+<div class="container">
+    <button class="btn-secondary" onclick="window.location.href='home.html'">⬅ Retour à la carte</button>
+
+    <h2>⚙️ Paramètres du compte</h2>
+
+    <h3>Mon Profil</h3>
+    <input type="text" id="new-username" placeholder="Nouveau nom d'utilisateur">
+    <button class="btn-primary" onclick="updateUsername()">Mettre à jour le pseudo</button>
+    <p id="msg-profile" class="msg"></p>
+
+    <h3>⭐ Mes Lieux Favoris</h3>
+    <div id="favorites-list" style="margin-bottom: 20px;">
+        <p style="color: #5f6368; font-size: 14px;">Chargement...</p>
+    </div>
+
+    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+        <h4 style="margin-top: 0; margin-bottom: 10px;">Ajouter un favori</h4>
+        <input type="text" id="fav-label" placeholder="Nom (ex: Maison, Travail)">
+        <input type="text" id="fav-address" placeholder="Adresse complète">
+        <button class="btn-primary" onclick="addFavorite()">Ajouter</button>
+        <p id="msg-fav" class="msg"></p>
+    </div>
+
+    <h3 style="color: #ea4335; border-color: #fce8e6;">Zone de danger</h3>
+    <button class="btn-danger" onclick="deleteAccount()">🗑️ Supprimer mon compte définitivement</button>
+</div>
+
+<script>
+    // --- GESTION DU PROFIL ---
+    async function updateUsername() {
+        const newUsername = document.getElementById('new-username').value;
+        const msgBox = document.getElementById('msg-profile');
+        if(!newUsername) return;
+
+        try {
+            const res = await fetch(`${API_URL}/api/user/username`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ newUsername })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                msgBox.style.color = "green";
+                msgBox.innerText = "Pseudo mis à jour !";
+            } else {
+                msgBox.style.color = "red";
+                msgBox.innerText = data.error || "Erreur lors de la mise à jour.";
+            }
+        } catch (err) {
+            msgBox.style.color = "red"; msgBox.innerText = "Erreur de connexion.";
+        }
+    }
+
+    async function deleteAccount() {
+        if(!confirm("Êtes-vous sûr de vouloir supprimer DÉFINITIVEMENT votre compte ? Cette action est irréversible.")) return;
+
+        try {
+            const res = await fetch(`${API_URL}/api/user`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                localStorage.removeItem('token');
+                window.location.replace('index.html');
+            } else {
+                alert("Erreur lors de la suppression du compte.");
+            }
+        } catch (err) {
+            alert("Erreur de connexion.");
+        }
+    }
+
+    // --- GESTION DES FAVORIS ---
+    async function loadFavorites() {
+        const listContainer = document.getElementById('favorites-list');
+        try {
+            const res = await fetch(`${API_URL}/api/navigation/favorites`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const favorites = await res.json();
+                listContainer.innerHTML = '';
+
+                if(favorites.length === 0) {
+                    listContainer.innerHTML = '<p style="color: #5f6368; font-size: 14px;">Aucun favori enregistré.</p>';
+                    return;
+                }
+
+                favorites.forEach(fav => {
+                    listContainer.innerHTML += `
+                        <div class="fav-item">
+                            <div class="fav-info">
+                                <strong>${fav.label}</strong>
+                                <span>${fav.address}</span>
+                            </div>
+                            <button class="btn-danger btn-small" onclick="deleteFavorite(${fav.id})">X</button>
+                        </div>
+                    `;
+                });
+            }
+        } catch (err) {
+            listContainer.innerHTML = '<p style="color: red;">Erreur de chargement.</p>';
+        }
+    }
+
+    async function addFavorite() {
+        const label = document.getElementById('fav-label').value;
+        const address = document.getElementById('fav-address').value;
+        const msgBox = document.getElementById('msg-fav');
+
+        if(!label || !address) {
+            msgBox.style.color = "red"; msgBox.innerText = "Veuillez remplir tous les champs.";
+            return;
+        }
+
+        msgBox.style.color = "#5f6368"; msgBox.innerText = "Recherche de l'adresse...";
+
+        try {
+            // 1. Géocoder l'adresse avec l'API existante
+            const geoRes = await fetch(`${API_URL}/api/navigation/geocode`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ address })
+            });
+
+            if (!geoRes.ok) {
+                msgBox.style.color = "red"; msgBox.innerText = "Adresse introuvable.";
+                return;
+            }
+
+            const coords = await geoRes.json();
+
+            // 2. Sauvegarder le favori
+            const saveRes = await fetch(`${API_URL}/api/navigation/favorites`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    placeName: label,
+                    address: address,
+                    latitude: coords.lat,
+                    longitude: coords.lon // Note: geocode retourne "lon", vérifiez si votre API attend "longitude" ou "lon"
+                })
+            });
+
+            if (saveRes.ok) {
+                document.getElementById('fav-label').value = '';
+                document.getElementById('fav-address').value = '';
+                msgBox.innerText = "";
+                loadFavorites();
+            } else {
+                msgBox.style.color = "red"; msgBox.innerText = "Erreur lors de la sauvegarde.";
+            }
+
+        } catch (err) {
+            msgBox.style.color = "red"; msgBox.innerText = "Erreur serveur.";
+        }
+    }
+
+    async function deleteFavorite(id) {
+        if(!confirm("Supprimer ce favori ?")) return;
+        try {
+            const res = await fetch(`${API_URL}/api/navigation/favorites/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if(res.ok) loadFavorites();
+        } catch (err) {
+            console.error("Erreur de suppression", err);
+        }
+    }
+</script>
+</body>
+</html>

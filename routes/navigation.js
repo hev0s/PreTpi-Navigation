@@ -1,7 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 // Ajout de l'import des fonctions de base de données
-import { getActiveIncidents, postIncident, deactivateIncident } from '../Database/LinkWithDatabase.js';
+import { getActiveIncidents, postIncident, deactivateIncident, getFavoritePlaces, setFavoritePlace, deleteFavoritePlace, deleteUser} from '../Database/LinkWithDatabase.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -114,6 +114,45 @@ router.post('/autocomplete', verifyToken, async (req, res) => {
         res.status(200).json(uniqueSuggestions);
     } catch (error) {
         res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// --- ROUTES FAVORIS ---
+
+// 1. Récupérer les favoris de l'utilisateur
+router.get('/favorites', verifyToken, async (req, res) => {
+    try {
+        const favorites = await getFavoritePlaces(req.userId);
+        res.status(200).json(favorites);
+    } catch (err) {
+        res.status(500).json({ error: 'Erreur lors de la récupération des favoris' });
+    }
+});
+
+// 2. Ajouter un nouveau favori
+router.post('/favorites', verifyToken, async (req, res) => {
+    const { placeName, address, latitude, longitude } = req.body;
+
+    if (!placeName || !address || !latitude || !longitude) {
+        return res.status(400).json({ error: 'Données manquantes pour le favori' });
+    }
+
+    try {
+        const insertId = await setFavoritePlace(req.userId, placeName, address, latitude, longitude);
+        res.status(201).json({ success: true, id: insertId });
+    } catch (err) {
+        res.status(500).json({ error: 'Erreur lors de l\'enregistrement du favori' });
+    }
+});
+
+// 3. Supprimer un favori
+router.delete('/favorites/:id', verifyToken, async (req, res) => {
+    const placeId = req.params.id;
+    try {
+        await deleteFavoritePlace(req.userId, placeId);
+        res.status(200).json({ success: true, message: "Favori supprimé" });
+    } catch (err) {
+        res.status(500).json({ error: 'Erreur lors de la suppression du favori' });
     }
 });
 

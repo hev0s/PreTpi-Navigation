@@ -210,6 +210,11 @@
 </script>
 
 <div id="controls">
+  <div id="header-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+    <button id="btn-settings" onclick="window.location.href='settings.html'" style="background: transparent; color: #5f6368; padding: 5px; font-size: 20px; box-shadow: none; min-width: auto;">⚙️</button>
+    <h3 style="margin: 0; color: #202124;">DuckyRoad</h3>
+  </div>
+
   <div class="input-group" id="waypoints-container">
     <div class="waypoint-row">
       <div class="autocomplete-wrapper">
@@ -764,6 +769,7 @@
     isNavigating = true;
     requestWakeLock();
 
+    document.getElementById('header-controls').style.display = 'none';
     document.getElementById('waypoints-container').style.display = 'none';
     document.getElementById('btn-add-stop').style.display = 'none';
     document.getElementById('main-buttons').style.display = 'none';
@@ -803,6 +809,7 @@
     const mapDiv = document.getElementById('map');
     mapDiv.style.transform = `rotate(0deg)`;
 
+    document.getElementById('header-controls').style.display = 'flex';
     document.getElementById('waypoints-container').style.display = 'flex';
     document.getElementById('btn-add-stop').style.display = 'block';
     document.getElementById('main-buttons').style.display = 'grid';
