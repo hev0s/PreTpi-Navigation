@@ -173,6 +173,8 @@
 
 <body style="display: none;" id="main-body">
 
+<script src="/js/translations.js"></script>
+
 <script>
   const API_URL = "https://pretpi-navigation.onrender.com";
   const token = localStorage.getItem('token');
@@ -187,6 +189,11 @@
             .then(response => {
               if (response.ok) {
                 document.getElementById('main-body').style.display = 'block';
+
+                // --- FORCER L'APPLICATION DE LA LANGUE ICI ---
+                if (typeof setLanguage === 'function') {
+                  setLanguage(localStorage.getItem('appLang') || 'fr');
+                }
 
                 // On injecte l'API_URL devant chaque image de la modale pour les incidents
                 document.querySelectorAll('.btn-inc-type img').forEach(img => {
@@ -218,26 +225,26 @@
   <div class="input-group" id="waypoints-container">
     <div class="waypoint-row">
       <div class="autocomplete-wrapper">
-        <input type="text" class="waypoint-input" placeholder="📍 Votre position (Laissez vide)">
+        <input type="text" class="waypoint-input" data-i18n-placeholder="my_location" placeholder="📍 Votre position (Laissez vide)">
       </div>
     </div>
     <div class="waypoint-row">
       <div class="autocomplete-wrapper">
-        <input type="text" class="waypoint-input" placeholder="🏁 Destination">
+        <input type="text" class="waypoint-input" data-i18n-placeholder="destination" placeholder="🏁 Destination">
       </div>
     </div>
   </div>
 
-  <button class="btn-add-stop" id="btn-add-stop" onclick="addStop()">+ Ajouter une étape</button>
+  <button class="btn-add-stop" id="btn-add-stop" onclick="addStop()" data-i18n="add_stop">+ Ajouter une étape</button>
 
   <div class="btn-group" id="main-buttons">
-    <button class="btn-route" onclick="calculateRoute()">Rechercher l'itinéraire</button>
-    <button class="btn-incident" onclick="openIncidentModal()">⚠️ Signaler</button>
-    <button class="btn-logout" onclick="logout()">Déconnexion</button>
+    <button class="btn-route" onclick="calculateRoute()" data-i18n="search_route">Rechercher l'itinéraire</button>
+    <button class="btn-incident" onclick="openIncidentModal()" data-i18n="report_incident">⚠️ Signaler</button>
+    <button class="btn-logout" onclick="logout()" data-i18n="logout">Déconnexion</button>
   </div>
 
-  <button class="btn-nav" id="btn-start-nav" onclick="startNavigation()">🚀 Démarrer la navigation</button>
-  <button class="btn-stop-nav" id="btn-stop-nav" onclick="stopNavigation()">🛑 Quitter la navigation</button>
+  <button class="btn-nav" id="btn-start-nav" onclick="startNavigation()" data-i18n="start_nav">🚀 Démarrer la navigation</button>
+  <button class="btn-stop-nav" id="btn-stop-nav" onclick="stopNavigation()" data-i18n="stop_nav">🛑 Quitter la navigation</button>
 </div>
 
 <div id="eta-panel">
@@ -277,6 +284,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+<script src="js/translations.js"></script>
 
 <script>
   let map;
@@ -595,7 +603,9 @@
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'waypoint-input';
-    input.placeholder = '🛑 Étape supplémentaire...';
+    // Ajout des attributs de traduction pour les nouveaux champs générés
+    input.setAttribute('data-i18n-placeholder', 'add_stop');
+    input.placeholder = typeof t === 'function' ? t('add_stop') : '🛑 Étape supplémentaire...';
 
     wrapper.appendChild(input);
     row.appendChild(wrapper);
@@ -700,7 +710,7 @@
           waypoints.push(latLng);
         } else {
           alert(`Adresse introuvable : ${address}`);
-          routeBtn.innerText = "Rechercher l'itinéraire";
+          routeBtn.innerText = typeof t === 'function' ? t('search_route') : "Rechercher l'itinéraire";
           routeBtn.style.opacity = "1";
           return;
         }
@@ -709,7 +719,7 @@
 
     if (waypoints.length < 2) {
       alert("Il faut au moins un point de départ et une destination !");
-      routeBtn.innerText = "Rechercher l'itinéraire";
+      routeBtn.innerText = typeof t === 'function' ? t('search_route') : "Rechercher l'itinéraire";
       routeBtn.style.opacity = "1";
       return;
     }
@@ -743,7 +753,7 @@
 
       updateETAPanel();
 
-      routeBtn.innerText = "Rechercher l'itinéraire";
+      routeBtn.innerText = typeof t === 'function' ? t('search_route') : "Rechercher l'itinéraire";
       routeBtn.style.opacity = "1";
 
       if (!isNavigating) {
@@ -754,7 +764,7 @@
     routingControl.on('routingerror', function(err) {
       alert("📍 Impossible de calculer un itinéraire. La destination semble inatteignable par la route.");
 
-      routeBtn.innerText = "Rechercher l'itinéraire";
+      routeBtn.innerText = typeof t === 'function' ? t('search_route') : "Rechercher l'itinéraire";
       routeBtn.style.opacity = "1";
       document.getElementById('btn-start-nav').style.display = 'none';
 
