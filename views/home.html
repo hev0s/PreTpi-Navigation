@@ -185,6 +185,70 @@
       #controls { top: 10px; left: 10px; right: 10px; width: auto; }
       .incident-grid { grid-template-columns: 1fr 1fr; }
     }
+    /* ========================================================
+       MODE PAYSAGE Téléphone
+       ======================================================== */
+    @media (orientation: landscape) and (max-height: 600px) {
+      /* Le menu de contrôle passe à gauche avec une largeur fixe et devient défilable */
+      #controls {
+        top: 10px;
+        left: 10px;
+        width: 280px;
+        max-height: calc(100vh - 20px);
+        overflow-y: auto;
+        padding: 15px;
+      }
+      /* Le panneau ETA (temps de trajet) ne prend plus toute la largeur
+         et devient une "carte" flottante en bas à droite */
+      #eta-panel {
+        width: 250px;
+        left: auto;
+        right: 10px;
+        bottom: 10px;
+        border-top-left-radius: 16px;
+        border-top-right-radius: 16px;
+        border-bottom-left-radius: 16px;
+        border-bottom-right-radius: 16px; /* Bords arrondis partout */
+        padding: 15px;
+      }
+      /* On décale le bouton flottant de signalement pour qu'il ne se cache pas sous l'ETA */
+      #btn-fab-incident {
+        right: 280px;
+        bottom: 15px;
+        width: 50px;
+        height: 50px;
+        font-size: 28px;
+      }
+      /* Le compteur de vitesse se place bien dans le coin inférieur gauche */
+      #speed-panel {
+        left: 10px;
+        bottom: 10px;
+        width: 55px;
+        height: 55px;
+      }
+      #speed-value { font-size: 18px; }
+      /* Ajustement de la modale de signalement (pour éviter qu'elle soit coupée) */
+      .modal-content {
+        max-height: 95vh;
+        overflow-y: auto;
+        padding: 15px;
+      }
+
+      .incident-grid {
+        grid-template-columns: repeat(3, 1fr); /* Force 3 colonnes pour gagner de la place */
+        gap: 5px;
+      }
+
+      .btn-inc-type img {
+        width: 30px; /* Réduit la taille des icônes de signalement */
+        height: 30px;
+      }
+
+      .btn-nav, .btn-stop-nav {
+        padding: 12px;
+        font-size: 14px;
+      }
+    }
   </style>
 </head>
 
