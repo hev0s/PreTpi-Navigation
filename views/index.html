@@ -5,18 +5,140 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DuckyRoad - Connexion</title>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 50px; }
-        .container { border: 1px solid #ccc; padding: 20px; border-radius: 8px; width: 300px; margin-top: 10px; }
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            /* Un fond subtil pour bien voir l'effet glassmorphism */
+            background: linear-gradient(135deg, #e5e3df 0%, #f8f9fa 100%);
+        }
+
+        .lang-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .lang-selector {
+            padding: 10px 14px;
+            border-radius: 12px; /* Bords arrondis */
+            /* Glassmorphism */
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+            color: #202124;
+            cursor: pointer;
+            outline: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .container {
+            /* Glassmorphism */
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            padding: 40px 30px;
+            border-radius: 24px; /* Bords bien arrondis */
+            width: 100%;
+            max-width: 360px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .container h2 {
+            margin-top: 0;
+            color: #202124;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
         .hidden { display: none; }
-        input { display: block; width: 90%; margin-bottom: 10px; padding: 8px; }
-        button { width: 100%; padding: 10px; cursor: pointer; margin-bottom: 10px; }
-        .lang-container { width: 300px; text-align: right; margin-bottom: 10px; }
+
+        input {
+            display: block;
+            width: 100%;
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            border: 1px solid rgba(218, 220, 224, 0.6);
+            border-radius: 12px; /* Bords arrondis */
+            font-size: 15px;
+            /* Translucide */
+            background-color: rgba(255, 255, 255, 0.6);
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+            color: #202124;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #1a73e8;
+            background-color: white;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-bottom: 16px;
+            border-radius: 12px; /* Bords arrondis */
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.1s, background-color 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.2);
+        }
+
+        button:hover {
+            background-color: #1557b0;
+            box-shadow: 0 6px 16px rgba(26, 115, 232, 0.3);
+        }
+
+        button:active {
+            transform: scale(0.97);
+        }
+
+        p {
+            color: #5f6368;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        a {
+            color: #1a73e8;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        a:hover {
+            text-decoration: underline;
+            color: #1557b0;
+        }
+
+        #message {
+            margin-top: 16px;
+            font-size: 14px;
+            font-weight: 600;
+            min-height: 20px;
+        }
     </style>
 </head>
 <body>
 
 <div class="lang-container">
-    <select class="lang-selector" onchange="setLanguage(this.value)" style="padding: 5px; border-radius: 5px;">
+    <select class="lang-selector" onchange="setLanguage(this.value)">
         <option value="fr">Français</option>
         <option value="en">English</option>
         <option value="de">Deutsch</option>
@@ -44,7 +166,7 @@
         <p><span data-i18n="has_account">Déjà un compte ?</span> <a href="#" onclick="toggleSection('login')" data-i18n="login_btn">Se connecter</a></p>
     </div>
 
-    <p id="message" style="color: red;"></p>
+    <p id="message"></p>
 </div>
 
 <script src="js/translations.js"></script>
@@ -78,7 +200,7 @@
             const data = await response.json();
 
             if (response.ok) {
-                document.getElementById('message').style.color = 'green';
+                document.getElementById('message').style.color = '#34a853'; // Vert doux
 
                 if (endpoint === 'login') {
                     localStorage.setItem('token', data.token);
@@ -92,24 +214,23 @@
                     window.location.href = 'home.html';
                 } else if (endpoint === 'signup') {
                     // 1. On affiche le message de succès pendant qu'on est encore sur l'inscription
-                    document.getElementById('message').style.color = 'green';
                     document.getElementById('message').innerText = 'Compte créé avec succès ! Redirection vers la connexion...';
 
                     // 2. On attend 2 secondes (2000 millisecondes) avant de basculer
                     setTimeout(() => {
                         toggleSection('login');
                         // On remet le message en vert car toggleSection l'efface
-                        document.getElementById('message').style.color = 'green';
+                        document.getElementById('message').style.color = '#34a853';
                         document.getElementById('message').innerText = 'Vous pouvez maintenant vous connecter.';
                     }, 2000);
                 }
 
             } else {
-                document.getElementById('message').style.color = 'red';
+                document.getElementById('message').style.color = '#ea4335'; // Rouge doux
                 document.getElementById('message').innerText = data.error || 'Une erreur est survenue';
             }
         } catch (error) {
-            document.getElementById('message').style.color = 'red';
+            document.getElementById('message').style.color = '#ea4335';
             document.getElementById('message').innerText = "Erreur de connexion au serveur.";
             console.error(error);
         }
