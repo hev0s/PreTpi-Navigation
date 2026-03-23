@@ -322,8 +322,11 @@
   let incidentLayerGroup;
   let promptedIncidents = new Set();
 
-  // NOUVEAU: On stocke désormais un tableau d'IDs au cas où l'utilisateur désactive un "groupe" fusionné
+  // Tableau d'IDs pour la vérification
   let currentVerifyIncidentIds = [];
+
+  // Stockage des coordonnées de l'itinéraire pour le recalcul intelligent
+  let currentRouteCoords = null;
 
   async function requestWakeLock() {
     try {
@@ -346,6 +349,23 @@
       await requestWakeLock();
     }
   });
+
+  // --- NOUVEAU: Fonction pour vérifier si on a quitté l'itinéraire ---
+  function isOffRoute(userLatLng, routeCoords, thresholdMeters = 50) {
+    if (!routeCoords || routeCoords.length === 0) return false;
+
+    let minDistance = Infinity;
+    // Trouve le point du tracé le plus proche de l'utilisateur
+    for (let i = 0; i < routeCoords.length; i++) {
+      let dist = userLatLng.distanceTo(routeCoords[i]);
+      if (dist < minDistance) {
+        minDistance = dist;
+      }
+    }
+
+    // Si la distance minimale est supérieure au seuil, on est hors trajet
+    return minDistance > thresholdMeters;
+  }
 
   function initMap() {
     map = L.map('map', {zoomControl: false}).setView([46.8, 6.5], 10);
@@ -410,18 +430,16 @@
     }
   }
 
-  // --- NOUVEAU: Fonction de "Clustering" pour fusionner les incidents proches ---
+  // Fonction de "Clustering" pour fusionner les incidents proches
   function clusterIncidents(rawIncidents) {
     let clustered = [];
 
     rawIncidents.forEach(incident => {
       let isMerged = false;
 
-      // On vérifie si l'incident appartient à un groupe (cluster) existant
       for (let i = 0; i < clustered.length; i++) {
         let cluster = clustered[i];
 
-        // S'ils sont du même type et distants de moins de 50 mètres, on les fusionne
         if (cluster.type === incident.type) {
           let distance = L.latLng(incident.latitude, incident.longitude).distanceTo(L.latLng(cluster.latitude, cluster.longitude));
 
@@ -434,7 +452,6 @@
         }
       }
 
-      // Si l'incident n'a trouvé aucun copain proche, il crée son propre groupe
       if (!isMerged) {
         clustered.push({
           ...incident,
@@ -454,8 +471,6 @@
       });
       if (response.ok) {
         const rawIncidents = await response.json();
-
-        // On utilise la nouvelle fonction pour fusionner les incidents avant de les afficher
         activeIncidents = clusterIncidents(rawIncidents);
         renderIncidentsOnMap();
       }
@@ -485,7 +500,6 @@
         popupAnchor: [0, -20]
       });
 
-      // Mettre à jour le texte du marqueur pour indiquer le nombre de signalements s'il y a eu fusion
       let popupText = `<b>${incident.type}</b>`;
       if (incident.count > 1) {
         popupText += `<br><small style="color: #ea4335;">Signalé par ${incident.count} personnes</small>`;
@@ -542,7 +556,6 @@
     if (!userLocation || activeIncidents.length === 0) return;
 
     activeIncidents.forEach(incident => {
-      // On vérifie le premier ID du groupe fusionné pour savoir si on a déjà demandé
       if (promptedIncidents.has(incident.mergedIds[0])) return;
 
       const incidentLocation = L.latLng(incident.latitude, incident.longitude);
@@ -556,9 +569,7 @@
 
   let verifyTimeout;
   function promptVerification(incident) {
-    // On marque tous les IDs du groupe fusionné comme "déjà demandés"
     incident.mergedIds.forEach(id => promptedIncidents.add(id));
-
     currentVerifyIncidentIds = incident.mergedIds;
 
     document.getElementById('verify-text').innerText = `L'incident "${incident.type}" est-il toujours présent ?`;
@@ -578,7 +589,6 @@
     const idsToDeactivate = currentVerifyIncidentIds;
     currentVerifyIncidentIds = [];
 
-    // Si on dit "Non" (plus actif), on désactive TOUS les IDs liés à ce cluster d'un coup
     if (!isStillActive && idsToDeactivate && idsToDeactivate.length > 0) {
       idsToDeactivate.forEach(async (id) => {
         try {
@@ -591,7 +601,6 @@
         }
       });
 
-      // On attend une seconde le temps que les patchs partent, puis on rafraîchit
       setTimeout(fetchIncidents, 1000);
     }
   }
@@ -820,6 +829,9 @@
       currentRouteDuration = summary.totalTime;
       currentRouteDistance = summary.totalDistance;
 
+      // NOUVEAU: Sauvegarder les coordonnées du tracé pour vérifier si on en dévie
+      currentRouteCoords = routes[0].coordinates;
+
       updateETAPanel();
 
       routeBtn.innerText = typeof t === 'function' ? t('search_route') : "Rechercher l'itinéraire";
@@ -870,17 +882,25 @@
       map.setView(userLocation, 17);
     }
 
+    // NOUVEAU: SetInterval revu pour le recalcul intelligent et un meilleur centrage (toutes les 3 sec au lieu de 10)
     navInterval = setInterval(() => {
       if (userLocation && routingControl && isNavigating) {
-        const waypoints = routingControl.getWaypoints();
-
-        waypoints[0].latLng = userLocation;
-
-        routingControl.setWaypoints(waypoints);
-
+        // Toujours centrer la caméra sur l'utilisateur
         map.setView(userLocation, 17);
+
+        // Vérifier si l'utilisateur est à plus de 50 mètres du tracé
+        if (currentRouteCoords && isOffRoute(userLocation, currentRouteCoords, 50)) {
+          console.log("Utilisateur hors itinéraire. Recalcul en cours...");
+
+          const waypoints = routingControl.getWaypoints();
+          waypoints[0].latLng = userLocation;
+
+          // En relançant setWaypoints, Leaflet-Routing-Machine va recalculer,
+          // et l'événement 'routesfound' mettra à jour currentRouteCoords
+          routingControl.setWaypoints(waypoints);
+        }
       }
-    }, 10000);
+    }, 3000);
   }
 
   function stopNavigation() {
