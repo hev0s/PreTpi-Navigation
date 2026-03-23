@@ -124,3 +124,24 @@ export async function deactivateIncident(incidentId) {
         console.error('Deactivate incident error:', err.message);
     }
 }
+
+export async function getUserLanguage(userId) {
+    try {
+        const [rows] = await db.query(
+            'SELECT language FROM users WHERE id = ?',
+            [userId]
+        );
+        return rows[0].language;
+    } catch (err) {
+        console.error('Select error:', err.message);
+        throw err;
+    }
+}
+
+export async function updateUserLanguage(userId, language) {
+    try {
+        await db.query('UPDATE users SET language = ? WHERE id = ?', [language, userId]);
+    } catch (err) {
+        console.error('Erreur lors de la modification du pseudo:', err.message);
+    }
+}
