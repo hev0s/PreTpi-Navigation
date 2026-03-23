@@ -91,8 +91,17 @@
                     document.getElementById('message').innerText = 'Succès ! Redirection...';
                     window.location.href = 'home.html';
                 } else if (endpoint === 'signup') {
-                    document.getElementById('message').innerText = 'Compte créé avec succès ! Veuillez vous connecter.';
-                    toggleSection('login');
+                    // 1. On affiche le message de succès pendant qu'on est encore sur l'inscription
+                    document.getElementById('message').style.color = 'green';
+                    document.getElementById('message').innerText = 'Compte créé avec succès ! Redirection vers la connexion...';
+
+                    // 2. On attend 2 secondes (2000 millisecondes) avant de basculer
+                    setTimeout(() => {
+                        toggleSection('login');
+                        // On remet le message en vert car toggleSection l'efface
+                        document.getElementById('message').style.color = 'green';
+                        document.getElementById('message').innerText = 'Vous pouvez maintenant vous connecter.';
+                    }, 2000);
                 }
 
             } else {
