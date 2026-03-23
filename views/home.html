@@ -14,7 +14,7 @@
 
     .leaflet-top { top: calc(25vh + 10px) !important; }
     .leaflet-right { right: calc(25vw + 10px) !important; }
-    .leaflet-bottom { bottom: calc(25vh + 100px) !important; } /* +100px pour ne pas passer sous le bouton flottant */
+    .leaflet-bottom { bottom: calc(25vh + 100px) !important; }
     .leaflet-left { left: calc(25vw + 10px) !important; }
 
     #controls {
@@ -125,7 +125,6 @@
     #eta-details { font-size: 16px; color: #5f6368; font-weight: 500; }
     .eta-highlight { color: #34a853; font-weight: 700; }
 
-    /* --- STYLES MODALE INCIDENTS --- */
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 3000; justify-content: center; align-items: center; }
     .modal-content { background: white; padding: 20px; border-radius: 16px; width: 90%; max-width: 400px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
     .incident-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 15px; }
@@ -134,12 +133,11 @@
     .btn-inc-type:hover { background: #f1f3f4; border-color: #1a73e8; }
     .modal-close { margin-top: 15px; width: 100%; background: #f1f3f4; color: #3c4043; }
 
-    /* --- BOUTON FLOTTANT (FAB) --- */
     #btn-fab-incident {
-      display: none; /* Caché par défaut, ne s'affiche qu'en navigation */
+      display: none;
       position: absolute;
       right: 20px;
-      bottom: 130px; /* Assez haut pour ne pas toucher le panneau ETA */
+      bottom: 130px;
       width: 60px;
       height: 60px;
       border-radius: 50%;
@@ -157,24 +155,22 @@
     }
     #btn-fab-incident:active { transform: scale(0.95); }
 
-    /* --- PANNEAU VÉRIFICATION --- */
     #verify-panel { display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 15px 25px; border-radius: 16px; z-index: 2500; box-shadow: 0 4px 24px rgba(0,0,0,0.2); text-align: center; width: 80%; max-width: 350px;}
     #verify-panel h3 { margin: 0 0 10px 0; font-size: 16px; color: #202124;}
     .verify-actions { display: flex; gap: 10px; justify-content: center; }
     .btn-yes { background: #34a853; color: white; flex: 1; }
     .btn-no { background: #ea4335; color: white; flex: 1; }
 
-    /* --- PANNEAU VITESSE --- */
     #speed-panel {
-      display: none; /* Caché par défaut, activé en navigation */
+      display: none;
       position: absolute;
       left: 20px;
-      bottom: 130px; /* Aligné avec le bouton de signalement */
+      bottom: 130px;
       width: 65px;
       height: 65px;
       border-radius: 50%;
       background: white;
-      border: 4px solid #f9c71c; /* Bordure jaune couleur canard */
+      border: 4px solid #f9c71c;
       box-shadow: 0 4px 14px rgba(0,0,0,0.3);
       z-index: 2000;
       flex-direction: column;
@@ -211,12 +207,10 @@
               if (response.ok) {
                 document.getElementById('main-body').style.display = 'block';
 
-                // --- FORCER L'APPLICATION DE LA LANGUE ICI ---
                 if (typeof setLanguage === 'function') {
                   setLanguage(localStorage.getItem('appLang') || 'fr');
                 }
 
-                // On injecte l'API_URL devant chaque image de la modale pour les incidents
                 document.querySelectorAll('.btn-inc-type img').forEach(img => {
                   const filename = img.getAttribute('data-filename');
                   if (filename) img.src = `${API_URL}/images/${filename}`;
@@ -224,7 +218,7 @@
 
                 initMap();
                 fetchIncidents();
-                setInterval(fetchIncidents, 15000); //
+                setInterval(fetchIncidents, 15000);
               } else {
                 localStorage.removeItem('token');
                 window.location.replace('index.html');
@@ -310,7 +304,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-<script src="js/translations.js"></script>
 
 <script>
   let map;
@@ -328,39 +321,28 @@
   let activeIncidents = [];
   let incidentLayerGroup;
   let promptedIncidents = new Set();
-  let currentVerifyIncidentId = null;
+
+  // NOUVEAU: On stocke désormais un tableau d'IDs au cas où l'utilisateur désactive un "groupe" fusionné
+  let currentVerifyIncidentIds = [];
 
   async function requestWakeLock() {
     try {
       if ('wakeLock' in navigator) {
         wakeLock = await navigator.wakeLock.request('screen');
-        console.log('Écran maintenu allumé (Wake Lock actif)');
-
-        // Si le système annule la demande
-        wakeLock.addEventListener('release', () => {
-          console.log('Le système a relâché le Wake Lock');
-        });
-      } else {
-        console.warn("L'API Wake Lock n'est pas supportée sur ce navigateur.");
       }
-    } catch (err) {
-      console.error(`Impossible de garder l'écran allumé: ${err.name}, ${err.message}`);
-    }
+    } catch (err) {}
   }
 
   function releaseWakeLock() {
     if (wakeLock !== null) {
       wakeLock.release().then(() => {
         wakeLock = null;
-        console.log('Wake Lock désactivé manuellement');
       });
     }
   }
 
-  // Réactivation du blockage de verrouillage si on quitte et qu'on revient sur la page
   document.addEventListener('visibilitychange', async () => {
     if (isNavigating && document.visibilityState === 'visible') {
-      console.log('Retour sur la page, réactivation du Wake Lock...');
       await requestWakeLock();
     }
   });
@@ -382,9 +364,8 @@
                 userLocation = L.latLng(position.coords.latitude, position.coords.longitude);
                 const heading = position.coords.heading;
 
-                //On récupère la vitesse et on la convertit en km/h
-                const speedMs = position.coords.speed; // Vitesse en mètres par seconde
-                const speedKmh = speedMs ? Math.round(speedMs * 3.6) : 0; // Conversion en km/h
+                const speedMs = position.coords.speed;
+                const speedKmh = speedMs ? Math.round(speedMs * 3.6) : 0;
                 const speedValueEl = document.getElementById('speed-value');
                 if (speedValueEl) {
                   speedValueEl.innerText = speedKmh;
@@ -413,7 +394,6 @@
                   }
                 }
 
-                // Rotation de l'icône
                 if (heading !== null && !isNaN(heading)) {
                   const gpsIcon = document.getElementById('gps-icon');
                   if (gpsIcon) gpsIcon.style.transform = `rotate(${heading}deg)`;
@@ -423,11 +403,48 @@
 
               },
               function(error) { console.error("Erreur GPS:", error); },
-              { enableHighAccuracy: true, maximumAge: 0, timeout: 2000 } // Mise à jour de la position limitée à 2 secondes
+              { enableHighAccuracy: true, maximumAge: 0, timeout: 2000 }
       );
     } else {
       alert("La géolocalisation n'est pas supportée par votre téléphone.");
     }
+  }
+
+  // --- NOUVEAU: Fonction de "Clustering" pour fusionner les incidents proches ---
+  function clusterIncidents(rawIncidents) {
+    let clustered = [];
+
+    rawIncidents.forEach(incident => {
+      let isMerged = false;
+
+      // On vérifie si l'incident appartient à un groupe (cluster) existant
+      for (let i = 0; i < clustered.length; i++) {
+        let cluster = clustered[i];
+
+        // S'ils sont du même type et distants de moins de 50 mètres, on les fusionne
+        if (cluster.type === incident.type) {
+          let distance = L.latLng(incident.latitude, incident.longitude).distanceTo(L.latLng(cluster.latitude, cluster.longitude));
+
+          if (distance <= 50) {
+            cluster.count = (cluster.count || 1) + 1;
+            cluster.mergedIds.push(incident.id);
+            isMerged = true;
+            break;
+          }
+        }
+      }
+
+      // Si l'incident n'a trouvé aucun copain proche, il crée son propre groupe
+      if (!isMerged) {
+        clustered.push({
+          ...incident,
+          count: 1,
+          mergedIds: [incident.id]
+        });
+      }
+    });
+
+    return clustered;
   }
 
   async function fetchIncidents() {
@@ -436,7 +453,10 @@
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       if (response.ok) {
-        activeIncidents = await response.json();
+        const rawIncidents = await response.json();
+
+        // On utilise la nouvelle fonction pour fusionner les incidents avant de les afficher
+        activeIncidents = clusterIncidents(rawIncidents);
         renderIncidentsOnMap();
       }
     } catch (error) {
@@ -465,8 +485,17 @@
         popupAnchor: [0, -20]
       });
 
+      // Mettre à jour le texte du marqueur pour indiquer le nombre de signalements s'il y a eu fusion
+      let popupText = `<b>${incident.type}</b>`;
+      if (incident.count > 1) {
+        popupText += `<br><small style="color: #ea4335;">Signalé par ${incident.count} personnes</small>`;
+      }
+      if (incident.description) {
+        popupText += `<br>${incident.description}`;
+      }
+
       L.marker([incident.latitude, incident.longitude], {icon: customIcon})
-              .bindPopup(`<b>${incident.type}</b>${incident.description ? '<br>'+incident.description : ''}`)
+              .bindPopup(popupText)
               .addTo(incidentLayerGroup);
     });
   }
@@ -513,7 +542,8 @@
     if (!userLocation || activeIncidents.length === 0) return;
 
     activeIncidents.forEach(incident => {
-      if (promptedIncidents.has(incident.id)) return;
+      // On vérifie le premier ID du groupe fusionné pour savoir si on a déjà demandé
+      if (promptedIncidents.has(incident.mergedIds[0])) return;
 
       const incidentLocation = L.latLng(incident.latitude, incident.longitude);
       const distance = userLocation.distanceTo(incidentLocation);
@@ -526,8 +556,10 @@
 
   let verifyTimeout;
   function promptVerification(incident) {
-    promptedIncidents.add(incident.id);
-    currentVerifyIncidentId = incident.id;
+    // On marque tous les IDs du groupe fusionné comme "déjà demandés"
+    incident.mergedIds.forEach(id => promptedIncidents.add(id));
+
+    currentVerifyIncidentIds = incident.mergedIds;
 
     document.getElementById('verify-text').innerText = `L'incident "${incident.type}" est-il toujours présent ?`;
     document.getElementById('verify-panel').style.display = 'block';
@@ -535,7 +567,7 @@
     clearTimeout(verifyTimeout);
     verifyTimeout = setTimeout(() => {
       document.getElementById('verify-panel').style.display = 'none';
-      currentVerifyIncidentId = null;
+      currentVerifyIncidentIds = [];
     }, 15000);
   }
 
@@ -543,19 +575,24 @@
     document.getElementById('verify-panel').style.display = 'none';
     clearTimeout(verifyTimeout);
 
-    const incidentId = currentVerifyIncidentId;
-    currentVerifyIncidentId = null;
+    const idsToDeactivate = currentVerifyIncidentIds;
+    currentVerifyIncidentIds = [];
 
-    if (!isStillActive && incidentId) {
-      try {
-        await fetch(`${API_URL}/api/navigation/incidents/${incidentId}/deactivate`, {
-          method: 'PATCH',
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        fetchIncidents();
-      } catch (error) {
-        console.error(error);
-      }
+    // Si on dit "Non" (plus actif), on désactive TOUS les IDs liés à ce cluster d'un coup
+    if (!isStillActive && idsToDeactivate && idsToDeactivate.length > 0) {
+      idsToDeactivate.forEach(async (id) => {
+        try {
+          await fetch(`${API_URL}/api/navigation/incidents/${id}/deactivate`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          });
+        } catch (error) {
+          console.error(error);
+        }
+      });
+
+      // On attend une seconde le temps que les patchs partent, puis on rafraîchit
+      setTimeout(fetchIncidents, 1000);
     }
   }
 
@@ -637,14 +674,12 @@
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'waypoint-input';
-    // Ajout des attributs de traduction pour les nouveaux champs générés
     input.setAttribute('data-i18n-placeholder', 'add_stop');
     input.placeholder = typeof t === 'function' ? t('add_stop') : '🛑 Étape supplémentaire...';
 
     wrapper.appendChild(input);
     row.appendChild(wrapper);
 
-    // Boutons de contrôle pour monter ou descendre et supprimer les étpes intérmédiaires
     const btnUp = document.createElement('button');
     btnUp.type = 'button';
     btnUp.className = 'waypoint-btn';
@@ -825,7 +860,6 @@
     document.getElementById('btn-fab-incident').style.display = 'flex';
     document.getElementById('eta-panel').style.display = 'flex';
 
-    //Affichage du panneau de vitesse
     document.getElementById('speed-panel').style.display = 'flex';
 
     if (routingControl) {
@@ -846,7 +880,7 @@
 
         map.setView(userLocation, 17);
       }
-    }, 10000); // Mise à jour de la map à 10 secondes
+    }, 10000);
   }
 
   function stopNavigation() {
@@ -865,7 +899,6 @@
 
     document.getElementById('btn-fab-incident').style.display = 'none';
 
-    // Cache le panneau vitesse
     document.getElementById('speed-panel').style.display = 'none';
 
     const routingContainer = document.querySelector('.leaflet-routing-container');
