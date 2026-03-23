@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { createUser, getUserByUsername, deleteUser, updateUsername } from "../Database/LinkWithDatabase.js";
+import { createUser, getUserByUsername, deleteUser, updateUsername, updateUserLanguage } from "../Database/LinkWithDatabase.js";
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
@@ -54,7 +54,8 @@ router.post("/login", async (req, res) => {
                 { expiresIn: '24h' }
             );
 
-            res.status(200).json({ success: true, token: token, message: 'Connecté !' });
+            // Ajout de la langue dans la réponse
+            res.status(200).json({ success: true, token: token, message: 'Connecté !', language: user.language });
         } else {
             res.status(401).json({ error: 'Identifiants incorrects' });
         }
@@ -110,6 +111,19 @@ router.delete("/user", verifyToken, async (req, res) => {
         res.status(200).json({ success: true, message: 'Compte supprimé' });
     } catch (err) {
         res.status(500).json({ error: 'Erreur lors de la suppression du compte' });
+    }
+});
+
+// --- MODIFIER LA LANGUE ---
+router.put("/user/language", verifyToken, async (req, res) => {
+    const { language } = req.body;
+    if (!language) return res.status(400).json({ error: 'Langue requise' });
+
+    try {
+        await updateUserLanguage(req.userId, language);
+        res.status(200).json({ success: true, message: 'Langue mise à jour avec succès' });
+    } catch (err) {
+        res.status(500).json({ error: 'Erreur serveur' });
     }
 });
 
