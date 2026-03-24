@@ -453,7 +453,7 @@
     }
   });
 
-  // --- NOUVEAU: Fonction pour vérifier si on a quitté l'itinéraire ---
+  // --- Fonction pour vérifier si on a quitté l'itinéraire ---
   function isOffRoute(userLatLng, routeCoords, thresholdMeters = 50) {
     if (!routeCoords || routeCoords.length === 0) return false;
 
@@ -932,7 +932,7 @@
       currentRouteDuration = summary.totalTime;
       currentRouteDistance = summary.totalDistance;
 
-      // NOUVEAU: Sauvegarder les coordonnées du tracé pour vérifier si on en dévie
+      // Sauvegarder les coordonnées du tracé pour vérifier si on change de routes
       currentRouteCoords = routes[0].coordinates;
 
       updateETAPanel();
@@ -985,7 +985,7 @@
       map.setView(userLocation, 17);
     }
 
-    // NOUVEAU: SetInterval revu pour le recalcul intelligent et un meilleur centrage (toutes les 3 sec au lieu de 10)
+    // SetInterval revu pour le recalcul intelligent et un meilleur centrage (toutes les 3 sec)
     navInterval = setInterval(() => {
       if (userLocation && routingControl && isNavigating) {
         // Toujours centrer la caméra sur l'utilisateur
@@ -998,8 +998,7 @@
           const waypoints = routingControl.getWaypoints();
           waypoints[0].latLng = userLocation;
 
-          // En relançant setWaypoints, Leaflet-Routing-Machine va recalculer,
-          // et l'événement 'routesfound' mettra à jour currentRouteCoords
+          // En relançant setWaypoints, Leaflet-Routing-Machine va recalculer, et l'événement 'routesfound' mettra à jour currentRouteCoords
           routingControl.setWaypoints(waypoints);
         }
       }
