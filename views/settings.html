@@ -29,6 +29,8 @@
             max-width: 500px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
             margin-top: 20px;
+            /* CORRECTION: empêche le débordement en incluant le padding dans les 100% */
+            box-sizing: border-box;
         }
 
         .lang-selector {
@@ -147,6 +149,21 @@
         }
         .autocomplete-list li:hover { background-color: rgba(248, 249, 250, 0.8); color: #1a73e8; }
         .autocomplete-list li:last-child { border-bottom: none; }
+
+        /* --- CORRECTION: Ajustements spécifiques pour téléphones --- */
+        @media (max-width: 600px) {
+            body {
+                padding: 15px 10px;
+            }
+            .container {
+                padding: 20px 15px;
+            }
+            .fav-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
     </style>
 </head>
 <body style="display: none;" id="main-body">

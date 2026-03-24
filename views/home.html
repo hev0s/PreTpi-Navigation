@@ -431,6 +431,31 @@
   // Stockage des coordonnées de l'itinéraire pour le recalcul intelligent
   let currentRouteCoords = null;
 
+  // Variables limitation de vitesse
+  let currentSpeedLimit = null;
+  let lastSpeedLimitCheckTime = 0;
+
+  async function fetchSpeedLimit(lat, lng) {
+    const query = `
+        [out:json];
+        way(around:30, ${lat}, ${lng})["highway"]["maxspeed"];
+        out tags;
+    `;
+    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.elements && data.elements.length > 0) {
+        const maxspeed = data.elements[0].tags.maxspeed;
+        return parseInt(maxspeed, 10);
+      }
+    } catch (error) {
+      console.error("Erreur lors de la récupération de la limitation de vitesse", error);
+    }
+    return null;
+  }
+
   async function requestWakeLock() {
     try {
       if ('wakeLock' in navigator) {
@@ -490,8 +515,32 @@
                 const speedMs = position.coords.speed;
                 const speedKmh = speedMs ? Math.round(speedMs * 3.6) : 0;
                 const speedValueEl = document.getElementById('speed-value');
+
                 if (speedValueEl) {
                   speedValueEl.innerText = speedKmh;
+
+                  // Changement de couleur dynamique si excès de vitesse
+                  if (currentSpeedLimit && speedKmh > currentSpeedLimit) {
+                    speedValueEl.style.color = "#ea4335"; // Rouge
+                  } else {
+                    speedValueEl.style.color = "#202124"; // Couleur normale
+                  }
+                }
+
+                // Vérification limitation toutes les 15 secondes en navigation
+                const now = Date.now();
+                if (isNavigating && (now - lastSpeedLimitCheckTime > 15000)) {
+                  lastSpeedLimitCheckTime = now;
+                  fetchSpeedLimit(userLocation.lat, userLocation.lng).then(limit => {
+                    // CORRECTION DU BUG : Si on a quitté la navigation entre-temps, on ignore la réponse de l'API
+                    if (!isNavigating) return;
+
+                    if (limit && !isNaN(limit)) {
+                      currentSpeedLimit = limit;
+                    } else {
+                      currentSpeedLimit = null;
+                    }
+                  });
                 }
 
                 if (!userMarker) {
@@ -503,6 +552,10 @@
                   });
                   userMarker = L.marker(userLocation, {icon: userIcon, zIndexOffset: 1000}).addTo(map);
                   map.setView(userLocation, 15);
+
+                  // CORRECTION DU CANARD CACHÉ : On décale la caméra vers le haut pour faire descendre le canard sous le menu
+                  map.panBy([0, -150], {animate: false});
+
                 } else {
                   userMarker.setLatLng(userLocation);
                   if (isNavigating) {
@@ -1020,8 +1073,12 @@
     document.getElementById('btn-stop-nav').style.display = 'none';
 
     document.getElementById('btn-fab-incident').style.display = 'none';
-
     document.getElementById('speed-panel').style.display = 'none';
+
+    // On réinitialise la limite de vitesse et on remet le texte en noir
+    currentSpeedLimit = null;
+    const speedValueEl = document.getElementById('speed-value');
+    if (speedValueEl) speedValueEl.style.color = "#202124";
 
     const routingContainer = document.querySelector('.leaflet-routing-container');
     if (routingContainer) routingContainer.style.display = 'block';
@@ -1030,7 +1087,12 @@
 
     if (routingControl) routingControl.options.fitSelectedRoutes = true;
     if (navInterval) clearInterval(navInterval);
-    if (userLocation) map.setView(userLocation, 13);
+
+    if (userLocation) {
+      map.setView(userLocation, 13);
+      // On redécale le canard pour l'écran d'accueil
+      map.panBy([0, -150], {animate: false});
+    }
   }
 
   function logout() {
