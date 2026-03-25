@@ -89,11 +89,11 @@ export async function updateFavoritePlace(userId, placeId, placeName, address, l
     }
 }
 
-export async function postIncident(userId, typeId, latitude, longitude, description = null) {
+export async function postIncident(userId, typeId, latitude, longitude) {
     try {
         const [result] = await db.query(
-            'INSERT INTO incidents (user_id, type_id, latitude, longitude, description) VALUES (?,?,?,?,?)',
-            [userId, typeId, latitude, longitude, description]
+            'INSERT INTO incidents (user_id, type_id, latitude, longitude) VALUES (?,?,?,?)',
+            [userId, typeId, latitude, longitude]
         );
         return result.insertId;
     } catch (err) {
@@ -105,7 +105,7 @@ export async function postIncident(userId, typeId, latitude, longitude, descript
 export async function getActiveIncidents() {
     try {
         const [rows] = await db.query(
-            `SELECT i.id, i.latitude, i.longitude, i.description, t.label as type, i.created_at
+            `SELECT i.id, i.latitude, i.longitude, t.label as type, i.created_at
              FROM incidents i
                       JOIN incident_types t ON i.type_id = t.id
              WHERE i.is_active = TRUE`
