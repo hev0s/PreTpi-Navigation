@@ -32,14 +32,14 @@ router.get('/incidents', verifyToken, async (req, res) => {
 });
 
 router.post('/incidents', verifyToken, async (req, res) => {
-    const { typeId, latitude, longitude, description } = req.body;
+    const { typeId, latitude, longitude } = req.body;
 
     if (!typeId || !latitude || !longitude) {
         return res.status(400).json({ error: 'Coordonnées ou type d\'incident manquant' });
     }
 
     try {
-        const insertId = await postIncident(req.userId, typeId, latitude, longitude, description);
+        const insertId = await postIncident(req.userId, typeId, latitude, longitude);
         res.status(201).json({ success: true, id: insertId });
     } catch (err) {
         res.status(500).json({ error: 'Erreur lors du signalement' });
