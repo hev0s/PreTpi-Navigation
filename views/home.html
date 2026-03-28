@@ -223,8 +223,9 @@
       justify-content: center;
       align-items: center;
       box-sizing: border-box;
+      transition: border-color 0.2s;
     }
-    #speed-value { font-size: 22px; font-weight: 800; color: #202124; line-height: 1; margin-top: 2px;}
+    #speed-value { font-size: 22px; font-weight: 800; color: #202124; line-height: 1; margin-top: 2px; transition: color 0.2s;}
     #speed-unit { font-size: 11px; color: #5f6368; font-weight: 600; }
 
     @media (max-width: 600px) {
@@ -431,9 +432,10 @@
   // Stockage des coordonnées de l'itinéraire pour le recalcul intelligent
   let currentRouteCoords = null;
 
-  // Variables limitation de vitesse
+  // Variables limitation de vitesse et unité
   let currentSpeedLimit = null;
   let lastSpeedLimitCheckTime = 0;
+  let currentSpeedUnit = 'km/h'; // Unité dynamique par défaut
 
   async function fetchSpeedLimit(lat, lng) {
     const query = `
@@ -446,13 +448,43 @@
     try {
       const response = await fetch(url);
       const data = await response.json();
+
       if (data.elements && data.elements.length > 0) {
-        const maxspeed = data.elements[0].tags.maxspeed;
-        return parseInt(maxspeed, 10);
+        // On passe tout en minuscules pour faciliter la recherche
+        const maxspeed = data.elements[0].tags.maxspeed.toLowerCase();
+
+        // 1. Cas de l'Allemagne (Autobahn sans limite)
+        if (maxspeed === "none") {
+          currentSpeedUnit = 'km/h';
+          return null;
+        }
+
+        // 2. Cas des USA / UK (Détection de "mph")
+        if (maxspeed.includes("mph")) {
+          currentSpeedUnit = 'mph';
+          return parseInt(maxspeed, 10); // On renvoie directement la valeur en mph
+        }
+
+        // On remet l'unité par défaut si ce n'est pas "mph"
+        currentSpeedUnit = 'km/h';
+
+        // 3. Cas des balises textuelles internationales (FR:urban, IT:rural, etc.)
+        if (maxspeed.includes("urban") || maxspeed.includes("city")) return 50;
+        if (maxspeed.includes("living_street") || maxspeed.includes("walk")) return 20;
+        if (maxspeed.includes("rural") || maxspeed.includes("national")) return 80;
+        if (maxspeed.includes("expressway") || maxspeed.includes("trunk")) return 100;
+        if (maxspeed.includes("motorway")) return 120;
+
+        // 4. Cas standard (Juste un nombre, ex: "80", "130")
+        const parsedSpeed = parseInt(maxspeed, 10);
+        if (!isNaN(parsedSpeed)) return parsedSpeed;
       }
     } catch (error) {
       console.error("Erreur lors de la récupération de la limitation de vitesse", error);
     }
+
+    // En cas d'erreur ou si on ne trouve rien, on remet l'unité par défaut
+    currentSpeedUnit = 'km/h';
     return null;
   }
 
@@ -478,7 +510,7 @@
     }
   });
 
-  // --- Fonction pour vérifier si on a quitté l'itinéraire ---
+  // Fonction pour vérifier si on a quitté l'itinéraire
   function isOffRoute(userLatLng, routeCoords, thresholdMeters = 50) {
     if (!routeCoords || routeCoords.length === 0) return false;
 
@@ -512,18 +544,28 @@
                 userLocation = L.latLng(position.coords.latitude, position.coords.longitude);
                 const heading = position.coords.heading;
 
-                const speedMs = position.coords.speed;
-                const speedKmh = speedMs ? Math.round(speedMs * 3.6) : 0;
+                const speedMs = position.coords.speed || 0;
+
+                // Conversion dynamique (mph ou km/h)
+                const displaySpeed = currentSpeedUnit === 'mph'
+                        ? Math.round(speedMs * 2.23694)  // Conversion en mph
+                        : Math.round(speedMs * 3.6);     // Conversion en km/h
+
                 const speedValueEl = document.getElementById('speed-value');
+                const speedUnitEl = document.getElementById('speed-unit');
+                const speedPanelEl = document.getElementById('speed-panel');
 
                 if (speedValueEl) {
-                  speedValueEl.innerText = speedKmh;
+                  speedValueEl.innerText = displaySpeed;
+                  if (speedUnitEl) speedUnitEl.innerText = currentSpeedUnit; // Mise à jour de l'affichage de l'unité
 
                   // Changement de couleur dynamique si excès de vitesse
-                  if (currentSpeedLimit && speedKmh > currentSpeedLimit) {
-                    speedValueEl.style.color = "#ea4335"; // Rouge
+                  if (currentSpeedLimit && displaySpeed > currentSpeedLimit) {
+                    speedValueEl.style.color = "#ea4335"; // Texte Rouge
+                    if (speedPanelEl) speedPanelEl.style.borderColor = "#ea4335"; // Bordure Rouge
                   } else {
-                    speedValueEl.style.color = "#202124"; // Couleur normale
+                    speedValueEl.style.color = "#202124"; // Texte Normal
+                    if (speedPanelEl) speedPanelEl.style.borderColor = "#f9c71c"; // Bordure Jaune
                   }
                 }
 
@@ -532,13 +574,32 @@
                 if (isNavigating && (now - lastSpeedLimitCheckTime > 15000)) {
                   lastSpeedLimitCheckTime = now;
                   fetchSpeedLimit(userLocation.lat, userLocation.lng).then(limit => {
-                    // CORRECTION DU BUG : Si on a quitté la navigation entre-temps, on ignore la réponse de l'API
+                    // Si on a quitté la navigation entre-temps, on ignore la réponse de l'API
                     if (!isNavigating) return;
 
                     if (limit && !isNaN(limit)) {
                       currentSpeedLimit = limit;
                     } else {
                       currentSpeedLimit = null;
+                    }
+
+                    // Force la mise à jour visuelle (vitesse recalculée + unité + couleur)
+                    if (speedValueEl) {
+                      const currentSpeedMs = position.coords.speed || 0;
+                      const currentDisplaySpeed = currentSpeedUnit === 'mph'
+                              ? Math.round(currentSpeedMs * 2.23694)
+                              : Math.round(currentSpeedMs * 3.6);
+
+                      speedValueEl.innerText = currentDisplaySpeed;
+                      if (speedUnitEl) speedUnitEl.innerText = currentSpeedUnit;
+
+                      if (currentSpeedLimit && currentDisplaySpeed > currentSpeedLimit) {
+                        speedValueEl.style.color = "#ea4335";
+                        if (speedPanelEl) speedPanelEl.style.borderColor = "#ea4335";
+                      } else {
+                        speedValueEl.style.color = "#202124";
+                        if (speedPanelEl) speedPanelEl.style.borderColor = "#f9c71c";
+                      }
                     }
                   });
                 }
@@ -553,7 +614,7 @@
                   userMarker = L.marker(userLocation, {icon: userIcon, zIndexOffset: 1000}).addTo(map);
                   map.setView(userLocation, 15);
 
-                  // CORRECTION DU CANARD CACHÉ : On décale la caméra vers le haut pour faire descendre le canard sous le menu
+                  // On décale la caméra vers le haut pour faire descendre le canard sous le menu
                   map.panBy([0, -150], {animate: false});
 
                 } else {
@@ -1075,10 +1136,17 @@
     document.getElementById('btn-fab-incident').style.display = 'none';
     document.getElementById('speed-panel').style.display = 'none';
 
-    // On réinitialise la limite de vitesse et on remet le texte en noir
+    // On réinitialise la limite et l'unité de vitesse
     currentSpeedLimit = null;
+    currentSpeedUnit = 'km/h';
+
     const speedValueEl = document.getElementById('speed-value');
+    const speedUnitEl = document.getElementById('speed-unit');
+    const speedPanelEl = document.getElementById('speed-panel');
+
     if (speedValueEl) speedValueEl.style.color = "#202124";
+    if (speedUnitEl) speedUnitEl.innerText = "km/h";
+    if (speedPanelEl) speedPanelEl.style.borderColor = "#f9c71c";
 
     const routingContainer = document.querySelector('.leaflet-routing-container');
     if (routingContainer) routingContainer.style.display = 'block';
