@@ -15,7 +15,6 @@
             margin: 0;
             padding: 20px;
             box-sizing: border-box;
-            /* Un fond subtil pour bien voir l'effet glassmorphism */
             background: linear-gradient(135deg, #e5e3df 0%, #f8f9fa 100%);
         }
 
@@ -27,8 +26,7 @@
 
         .lang-selector {
             padding: 10px 14px;
-            border-radius: 12px; /* Bords arrondis */
-            /* Glassmorphism */
+            border-radius: 12px;
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
@@ -41,17 +39,28 @@
         }
 
         .container {
-            /* Glassmorphism */
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.5);
             padding: 40px 30px;
-            border-radius: 24px; /* Bords bien arrondis */
+            border-radius: 24px;
             width: 100%;
             max-width: 360px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             text-align: center;
+        }
+
+        /* --- Styles pour le logo --- */
+        .logo-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .app-logo {
+            width: 120px;
+            height: auto;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
         }
 
         .container h2 {
@@ -69,9 +78,8 @@
             margin-bottom: 16px;
             padding: 14px 16px;
             border: 1px solid rgba(218, 220, 224, 0.6);
-            border-radius: 12px; /* Bords arrondis */
+            border-radius: 12px;
             font-size: 15px;
-            /* Translucide */
             background-color: rgba(255, 255, 255, 0.6);
             transition: all 0.2s ease;
             box-sizing: border-box;
@@ -93,7 +101,7 @@
             border: none;
             cursor: pointer;
             margin-bottom: 16px;
-            border-radius: 12px; /* Bords arrondis */
+            border-radius: 12px;
             font-size: 16px;
             font-weight: 600;
             transition: transform 0.1s, background-color 0.2s, box-shadow 0.2s;
@@ -146,6 +154,11 @@
 </div>
 
 <div class="container" id="auth-container">
+
+    <div class="logo-container">
+        <img data-filename="Logo_edited.png" alt="DuckyRoad Logo" class="app-logo">
+    </div>
+
     <div id="login-section">
         <h2 data-i18n="login_title">Se connecter</h2>
         <form id="login-form">
@@ -171,6 +184,17 @@
 
 <script src="js/translations.js"></script>
 <script>
+    // Déclaration de l'URL de base de l'API en global
+    const API_URL = "https://pretpi-navigation.onrender.com";
+
+    // Chargement dynamique de l'image dès que le DOM est prêt (comme pour les incidents)
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.app-logo').forEach(img => {
+            const filename = img.getAttribute('data-filename');
+            if (filename) img.src = `${API_URL}/images/${filename}`;
+        });
+    });
+
     if (localStorage.getItem('token')) {
         window.location.replace('home.html');
     }
@@ -189,8 +213,6 @@
         const password = document.getElementById(`${formPrefix}-password`).value;
 
         try {
-            const API_URL = "https://pretpi-navigation.onrender.com";
-
             const response = await fetch(`${API_URL}/api/${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -200,12 +222,11 @@
             const data = await response.json();
 
             if (response.ok) {
-                document.getElementById('message').style.color = '#34a853'; // Vert doux
+                document.getElementById('message').style.color = '#34a853';
 
                 if (endpoint === 'login') {
                     localStorage.setItem('token', data.token);
 
-                    // Récupération de la langue depuis la BDD
                     if (data.language) {
                         setLanguage(data.language);
                     }
@@ -213,20 +234,15 @@
                     document.getElementById('message').innerText = 'Succès ! Redirection...';
                     window.location.href = 'home.html';
                 } else if (endpoint === 'signup') {
-                    // 1. On affiche le message de succès pendant qu'on est encore sur l'inscription
                     document.getElementById('message').innerText = 'Compte créé avec succès ! Redirection vers la connexion...';
-
-                    // 2. On attend 2 secondes (2000 millisecondes) avant de basculer
                     setTimeout(() => {
                         toggleSection('login');
-                        // On remet le message en vert car toggleSection l'efface
                         document.getElementById('message').style.color = '#34a853';
                         document.getElementById('message').innerText = 'Vous pouvez maintenant vous connecter.';
                     }, 2000);
                 }
-
             } else {
-                document.getElementById('message').style.color = '#ea4335'; // Rouge doux
+                document.getElementById('message').style.color = '#ea4335';
                 document.getElementById('message').innerText = data.error || 'Une erreur est survenue';
             }
         } catch (error) {
