@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DuckyRoad - Navigation</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+
+  <style>
+    body { margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; height: 100vh; overflow: hidden; background-color: #e5e3df; }
+    #map { position: absolute; top: -25vh; left: -25vw; width: 150vw; height: 150vh; z-index: 1; }
+
+    #controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      background: white;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+      width: 320px;
+      max-width: calc(100vw - 40px);
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .input-group { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+
+    /* Nouvelles classes pour aligner les champs et les boutons */
+    .waypoint-row { display: flex; gap: 6px; align-items: center; width: 100%; }
+    .waypoint-row .autocomplete-wrapper { flex-grow: 1; position: relative; width: 100%; }
+
+    input {
+      padding: 14px 16px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-size: 15px;
+      background-color: #f1f3f4;
+      transition: all 0.2s ease;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    input:focus { outline: none; border-color: #1a73e8; background-color: white; box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2); }
+
+    .autocomplete-list {
+      position: absolute; top: 100%; left: 0; right: 0; background: white;
+      border: 1px solid #dadce0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 2000; list-style: none; margin: 5px 0 0 0; padding: 0; max-height: 200px; overflow-y: auto;
+    }
+    .autocomplete-list li {
+      padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f1f3f4;
+      font-size: 14px; color: #3c4043; line-height: 1.4;
+    }
+    .autocomplete-list li:hover { background-color: #f8f9fa; color: #1a73e8; }
+    .autocomplete-list li:last-child { border-bottom: none; }
+
+    .waypoint-btn {
+      padding: 0; width: 38px; height: 38px; min-width: 38px;
+      border-radius: 8px; display: flex; justify-content: center; align-items: center;
+      font-size: 16px; background: white; color: #5f6368; border: 1px solid #dadce0;
+      transition: all 0.2s; cursor: pointer;
+    }
+    .waypoint-btn:hover { background: #f8f9fa; border-color: #1a73e8; color: #1a73e8; }
+    .btn-del { color: #ea4335; }
+    .btn-del:hover { background: #fce8e6; border-color: #ea4335; color: #ea4335; }
+
+    .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    button {
+      padding: 12px;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      transition: transform 0.1s, filter 0.2s;
+    }
+    button:active { transform: scale(0.97); }
+    button:hover { filter: brightness(0.95); }
+
+    .btn-route { background: #1a73e8; color: white; grid-column: span 2; font-size: 16px; padding: 14px;}
+    .btn-add-stop { background: white; color: #1a73e8; border: 1px solid #dadce0; width: 100%; grid-column: span 2;}
+    .btn-incident { background: #ea4335; color: white; }
+    .btn-logout { background: #f1f3f4; color: #3c4043; }
+
+    .btn-nav { background: #34a853; color: white; grid-column: span 2; display: none; font-size: 16px; padding: 16px; box-shadow: 0 4px 10px rgba(52, 168, 83, 0.3); }
+    .btn-stop-nav { background: #ea4335; color: white; grid-column: span 2; display: none; padding: 16px; font-size: 16px;}
+
+    .leaflet-routing-geocoders { display: none !important; }
+    .leaflet-routing-container {
+      background: white !important;
+      border-radius: 16px !important;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15) !important;
+      padding: 10px !important;
+      font-family: inherit !important;
+      margin-top: 20px !important;
+      max-height: 40vh;
+      overflow-y: auto;
+    }
+
+    #eta-panel {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100vw;
+      background: white;
+      padding: 20px;
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      box-sizing: border-box;
+      padding-bottom: 30px;
+    }
+    #eta-time { font-size: 32px; font-weight: 800; color: #202124; margin-bottom: 5px;}
+    #eta-details { font-size: 16px; color: #5f6368; font-weight: 500; }
+    .eta-highlight { color: #34a853; font-weight: 700; }
+
+    @media (max-width: 600px) {
+      #controls { top: 10px; left: 10px; right: 10px; width: auto; }
+    }
+  </style>
+</head>
+
+<body style="display: none;" id="main-body">
+
+<script>
+  const API_URL = "https://pretpi-navigation.onrender.com";
+  const token = localStorage.getItem('token');
+
+  if (!token) {
+    window.location.replace('index.html');
+  } else {
+    fetch(`${API_URL}/api/verify`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+            .then(response => {
+              if (response.ok) {
+                document.getElementById('main-body').style.display = 'block';
+                initMap();
+              } else {
+                localStorage.removeItem('token');
+                window.location.replace('index.html');
+              }
+            })
+            .catch(error => {
+              console.error("Erreur de connexion", error);
+              window.location.replace('index.html');
+            });
+  }
+</script>
+
+<div id="controls">
+  <div class="input-group" id="waypoints-container">
+    <div class="waypoint-row">
+      <div class="autocomplete-wrapper">
+        <input type="text" class="waypoint-input" placeholder="📍 Votre position (Laissez vide)">
+      </div>
+    </div>
+    <div class="waypoint-row">
+      <div class="autocomplete-wrapper">
+        <input type="text" class="waypoint-input" placeholder="🏁 Destination">
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-add-stop" id="btn-add-stop" onclick="addStop()">+ Ajouter une étape</button>
+
+  <div class="btn-group" id="main-buttons">
+    <button class="btn-route" onclick="calculateRoute()">Rechercher l'itinéraire</button>
+    <button class="btn-incident" onclick="reportIncident()">⚠️ Signaler</button>
+    <button class="btn-logout" onclick="logout()">Déconnexion</button>
+  </div>
+
+  <button class="btn-nav" id="btn-start-nav" onclick="startNavigation()">🚀 Démarrer la navigation</button>
+  <button class="btn-stop-nav" id="btn-stop-nav" onclick="stopNavigation()">🛑 Quitter la navigation</button>
+</div>
+
+<div id="eta-panel">
+  <div id="eta-time">--:--</div>
+  <div id="eta-details">
+    <span id="eta-duration" class="eta-highlight">-- min</span> •
+    <span id="eta-distance">-- km</span>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
+<script>
+  let map;
+  let routingControl = null;
+  let userLocation = null;
+  let userMarker = null;
+
+  let currentRouteDuration = 0;
+  let currentRouteDistance = 0;
+  let navInterval = null;
+
+  let isNavigating = false;
+  let wakeLock = null;
+
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (err) {}
+  }
+
+  function releaseWakeLock() {
+    if (wakeLock !== null) {
+      wakeLock.release().then(() => { wakeLock = null; });
+    }
+  }
+
+  function initMap() {
+    map = L.map('map', {zoomControl: false}).setView([46.8, 6.5], 10);
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    document.querySelector('.leaflet-control-zoom').style.marginBottom = '100px';
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.watchPosition(
+              function(position) {
+                userLocation = L.latLng(position.coords.latitude, position.coords.longitude);
+
+                const heading = position.coords.heading;
+
+                if (!userMarker) {
+                  const userIcon = L.divIcon({
+                    className: 'user-marker',
+                    html: '<div style="background-color: #1a73e8; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>',
+                    iconSize: [22, 22],
+                    iconAnchor: [11, 11]
+                  });
+                  userMarker = L.marker(userLocation, {icon: userIcon}).addTo(map);
+                  map.setView(userLocation, 15);
+                } else {
+                  userMarker.setLatLng(userLocation);
+                  if (isNavigating) {
+                    map.setView(userLocation, 17);
+
+                    if (heading !== null && !isNaN(heading)) {
+                      const mapDiv = document.getElementById('map');
+                      mapDiv.style.transformOrigin = "center center";
+                      mapDiv.style.transition = "transform 0.5s linear";
+                      mapDiv.style.transform = `rotate(${-heading}deg)`;
+                    }
+                  }
+                }
+              },
+              function(error) {},
+              { enableHighAccuracy: true, maximumAge: 0, timeout: 2000 }
+      );
+    } else {
+      alert("La géolocalisation n'est pas supportée par votre téléphone.");
+    }
+  }
+
+  let autocompleteTimeout = null;
+
+  document.getElementById('waypoints-container').addEventListener('input', function(e) {
+    if (e.target.classList.contains('waypoint-input')) {
+      const input = e.target;
+      const val = input.value;
+
+      if (!val || val.length < 3) {
+        closeAllLists();
+        return;
+      }
+
+      clearTimeout(autocompleteTimeout);
+
+      autocompleteTimeout = setTimeout(async () => {
+        try {
+          let requestBody = { text: val };
+          if (userLocation) {
+            requestBody.lat = userLocation.lat;
+            requestBody.lon = userLocation.lng;
+          }
+
+          const response = await fetch(`${API_URL}/api/navigation/autocomplete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (response.ok) {
+            const suggestions = await response.json();
+            closeAllLists();
+
+            if (suggestions.length === 0) return;
+
+            const list = document.createElement('ul');
+            list.setAttribute('class', 'autocomplete-list');
+            input.parentNode.appendChild(list);
+
+            suggestions.forEach(suggest => {
+              const item = document.createElement('li');
+              const cleanText = suggest.split(',').slice(0, 3).join(',');
+              item.innerText = cleanText;
+
+              item.addEventListener('click', () => {
+                input.value = cleanText;
+                closeAllLists();
+              });
+              list.appendChild(item);
+            });
+          }
+        } catch (err) { console.error(err); }
+      }, 400);
+    }
+  });
+
+  function closeAllLists() {
+    const lists = document.querySelectorAll('.autocomplete-list');
+    lists.forEach(l => l.remove());
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.classList.contains('waypoint-input')) {
+      closeAllLists();
+    }
+  });
+
+  function addStop() {
+    const container = document.getElementById('waypoints-container');
+
+    const row = document.createElement('div');
+    row.className = 'waypoint-row';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'autocomplete-wrapper';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'waypoint-input';
+    input.placeholder = '🛑 Étape supplémentaire...';
+
+    wrapper.appendChild(input);
+    row.appendChild(wrapper);
+
+    // Boutons de contrôle pour monter ou descendre et supprimer
+    const btnUp = document.createElement('button');
+    btnUp.type = 'button';
+    btnUp.className = 'waypoint-btn';
+    btnUp.innerHTML = '↑';
+    btnUp.onclick = () => moveStop(row, -1);
+
+    const btnDown = document.createElement('button');
+    btnDown.type = 'button';
+    btnDown.className = 'waypoint-btn';
+    btnDown.innerHTML = '↓';
+    btnDown.onclick = () => moveStop(row, 1);
+
+    const btnDel = document.createElement('button');
+    btnDel.type = 'button';
+    btnDel.className = 'waypoint-btn btn-del';
+    btnDel.innerHTML = '✕';
+    btnDel.onclick = () => row.remove();
+
+    row.appendChild(btnUp);
+    row.appendChild(btnDown);
+    row.appendChild(btnDel);
+
+    // Insertion du champs juste avant la Destination
+    container.insertBefore(row, container.lastElementChild);
+  }
+
+  // Fonction pour réordonner les étapes
+  function moveStop(row, direction) {
+    const container = document.getElementById('waypoints-container');
+    const children = Array.from(container.children);
+    const index = children.indexOf(row);
+
+    // Bloque pour ne pas dépasser le champ de Départ (index 0)
+    if (direction === -1 && index > 1) {
+      container.insertBefore(row, children[index - 1]);
+    }
+    // Bloque pour ne pas dépasser le champ de Destination (index -1)
+    else if (direction === 1 && index < children.length - 2) {
+      // +2 car insertBefore place l'étape avant la Destination
+      container.insertBefore(row, children[index + 2]);
+    }
+  }
+
+  async function geocodeAddress(address) {
+    try {
+      let requestBody = { address: address };
+      if (userLocation) {
+        requestBody.lat = userLocation.lat;
+        requestBody.lon = userLocation.lng;
+      }
+
+      const response = await fetch(`${API_URL}/api/navigation/geocode`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return L.latLng(data.lat, data.lon);
+      } else {
+        return null;
+      }
+    } catch (error) {
+      console.error("Erreur serveur lors du géocodage", error);
+      return null;
+    }
+  }
+
+  function updateETAPanel() {
+    if (currentRouteDuration === 0) return;
+
+    const now = new Date();
+    const arrivalTime = new Date(now.getTime() + currentRouteDuration * 1000);
+
+    const hours = arrivalTime.getHours().toString().padStart(2, '0');
+    const minutes = arrivalTime.getMinutes().toString().padStart(2, '0');
+    document.getElementById('eta-time').innerText = `${hours}:${minutes}`;
+
+    const durationMins = Math.round(currentRouteDuration / 60);
+    const distanceKm = (currentRouteDistance / 1000).toFixed(1);
+    if (durationMins > 60) {
+      const h = Math.floor(durationMins / 60);
+      const m = durationMins % 60;
+      document.getElementById('eta-duration').innerText = `${h}h ${m} min`;
+    } else {
+      document.getElementById('eta-duration').innerText = `${durationMins} min`;
+    }
+
+    document.getElementById('eta-distance').innerText = `${distanceKm} km`;
+  }
+
+  async function calculateRoute() {
+    const inputs = document.querySelectorAll('.waypoint-input');
+    let waypoints = [];
+    const routeBtn = document.querySelector('.btn-route');
+
+    routeBtn.innerText = "⏳ Calcul en cours...";
+    routeBtn.style.opacity = "0.7";
+
+    for (let i = 0; i < inputs.length; i++) {
+      const address = inputs[i].value.trim();
+
+      if (address === "") {
+        if (i === 0 && userLocation) {
+          waypoints.push(userLocation);
+        }
+      } else {
+        const latLng = await geocodeAddress(address);
+        if (latLng) {
+          waypoints.push(latLng);
+        } else {
+          alert(`Adresse introuvable : ${address}`);
+          routeBtn.innerText = "Rechercher l'itinéraire";
+          routeBtn.style.opacity = "1";
+          return;
+        }
+      }
+    }
+
+    if (waypoints.length < 2) {
+      alert("Il faut au moins un point de départ et une destination !");
+      routeBtn.innerText = "Rechercher l'itinéraire";
+      routeBtn.style.opacity = "1";
+      return;
+    }
+
+    if (routingControl) {
+      map.removeControl(routingControl);
+    }
+
+    routingControl = L.Routing.control({
+      waypoints: waypoints,
+      routeWhileDragging: true,
+      language: 'fr',
+      showAlternatives: true,
+      lineOptions: {
+        styles: [{color: '#1a73e8', opacity: 0.8, weight: 6}]
+      },
+      createMarker: function(i, waypoint, n) {
+        if (i === 0) {
+          return null;
+        } else {
+          return L.marker(waypoint.latLng);
+        }
+      }
+    }).addTo(map);
+
+    routingControl.on('routesfound', function(e) {
+      const routes = e.routes;
+      const summary = routes[0].summary;
+      currentRouteDuration = summary.totalTime;
+      currentRouteDistance = summary.totalDistance;
+
+      updateETAPanel();
+
+      routeBtn.innerText = "Rechercher l'itinéraire";
+      routeBtn.style.opacity = "1";
+
+      if (!isNavigating) {
+        document.getElementById('btn-start-nav').style.display = 'block';
+      }
+    });
+
+    routingControl.on('routingerror', function(err) {
+      alert("📍 Impossible de calculer un itinéraire. La destination semble inatteignable par la route.");
+
+      routeBtn.innerText = "Rechercher l'itinéraire";
+      routeBtn.style.opacity = "1";
+      document.getElementById('btn-start-nav').style.display = 'none';
+
+      if (routingControl) {
+        map.removeControl(routingControl);
+        routingControl = null;
+      }
+    });
+  }
+
+  function startNavigation() {
+    isNavigating = true;
+    requestWakeLock();
+
+    document.getElementById('waypoints-container').style.display = 'none';
+    document.getElementById('btn-add-stop').style.display = 'none';
+    document.getElementById('main-buttons').style.display = 'none';
+    document.getElementById('btn-start-nav').style.display = 'none';
+
+    document.querySelector('.leaflet-routing-container').style.display = 'none';
+
+    document.getElementById('btn-stop-nav').style.display = 'block';
+
+    document.getElementById('eta-panel').style.display = 'flex';
+
+    if (routingControl) {
+      routingControl.options.fitSelectedRoutes = false;
+    }
+
+    if (userLocation) {
+      map.setView(userLocation, 17);
+    }
+
+    navInterval = setInterval(() => {
+      if (userLocation && routingControl && isNavigating) {
+        const waypoints = routingControl.getWaypoints();
+
+        waypoints[0].latLng = userLocation;
+
+        routingControl.setWaypoints(waypoints);
+
+        map.setView(userLocation, 17);
+      }
+    }, 30000);
+  }
+
+  function stopNavigation() {
+    isNavigating = false;
+    releaseWakeLock();
+
+    const mapDiv = document.getElementById('map');
+    mapDiv.style.transform = `rotate(0deg)`;
+
+    document.getElementById('waypoints-container').style.display = 'flex';
+    document.getElementById('btn-add-stop').style.display = 'block';
+    document.getElementById('main-buttons').style.display = 'grid';
+    document.getElementById('btn-start-nav').style.display = 'block';
+    document.getElementById('btn-stop-nav').style.display = 'none';
+
+    const routingContainer = document.querySelector('.leaflet-routing-container');
+    if (routingContainer) routingContainer.style.display = 'block';
+
+    document.getElementById('eta-panel').style.display = 'none';
+
+    if (routingControl) {
+      routingControl.options.fitSelectedRoutes = true;
+    }
+
+    if (navInterval) {
+      clearInterval(navInterval);
+    }
+
+    if (userLocation) {
+      map.setView(userLocation, 13);
+    }
+  }
+
+  function reportIncident() {
+    alert("Prochaine étape : Le formulaire de signalement !");
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    window.location.replace('index.html');
+  }
+</script>
+</body>
+</html>
