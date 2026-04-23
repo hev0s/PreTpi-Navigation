@@ -5,9 +5,14 @@ dotenv.config();
 
 const db = mysql.createPool({
     host: process.env.DB_HOST,
+    port: process.env.DB_PORT || 4000, // TiDB utilise généralement le port 4000
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
+    ssl: {
+        minVersion: 'TLSv1.2',
+        rejectUnauthorized: true
+    }, // OBLIGATOIRE : TiDB refuse les connexions non sécurisées
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
@@ -17,7 +22,7 @@ const db = mysql.createPool({
 
 db.getConnection()
     .then(connection => {
-        console.log('Connecté à la base distante Swisscenter !');
+        console.log('Connecté à la base distante TiDB Cloud !');
         connection.release();
     })
     .catch(err => {
